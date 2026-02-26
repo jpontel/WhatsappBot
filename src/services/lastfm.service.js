@@ -12,7 +12,7 @@ const ENDPOINTS = {
 const LASTFM_DEFAULT_IMAGE = '2a96cbd8b46e442fc41c2b86b821562f';
 
 class LastfmService {
-    async recuperarMaisOuvidasSemana(usuario, limite = 25) {
+    async recuperarAlbumsMaisOuvidosSemana(usuario, limite = 25) {
         let data;
 
         try {
@@ -77,6 +77,10 @@ class LastfmService {
         }));
 
         return albunsMapeados;
+    }
+
+    async recuperarMaisOuvidasSemana(usuario) {
+        
     }
 
     async buscarCapaItunes(artista, album) {
