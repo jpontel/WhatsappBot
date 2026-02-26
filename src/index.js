@@ -6,16 +6,25 @@ const qrcode = require('qrcode-terminal');
 const dotenv = require('dotenv');
 const { MessageMedia } = require('whatsapp-web.js');
 const { listarDiretorios } = require('./services/craft.service');
+const youtubeService = require('./youtube/youtube.service');
 dotenv.config();
 
 const diretorioChrome = process.env.IS_DESENV ? process.env.CHROME_FOLDER_MACOS : process.env.CHROME_FOLDER_LINUX;
 
-// Autenticação
+const fs = require('fs');
+
+process.on('uncaughtException', (err) => {
+    console.error(`Erro no código: `, err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Promise rejeitada não tratada capturada. Motivo:', reason);
+});
+
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         executablePath: diretorioChrome,
-        
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -44,7 +53,16 @@ client.on('message_create', async (message) => {
 
     if (message.from?.endsWith('@newsletter')) return;
 
-    if((message.timestamp < botInicio && message.from === 'status@broadcast') || message.isStatus) return;
+    if (
+        message.timestamp < botInicio || 
+        message.from === 'status@broadcast' || 
+        message.isStatus || 
+        message.type === 'location' || 
+        message.type === 'location_live' ||
+        message.type === 'live_location'
+    ) {
+        return;
+    }
 
     const chat = await message.getChat();
 
@@ -53,7 +71,6 @@ client.on('message_create', async (message) => {
         const usuario = message.body.split(' ')[1]?.trim();
 
         if(!usuario) {
-            const chat = await message.getChat();
             chat.sendMessage("Não entendi qual a mona da semaninha!!!");
             return;
         }
@@ -89,6 +106,49 @@ client.on('message_create', async (message) => {
         // A ideia eh ser um criador de registro diário pelo zap, eu passou uma mensagem com tags que serão procuradas para adicionar 
     }
 
+    if(message.body.startsWith('/youtube')) {
+        
+        const url = message.body.split(' ')[1];
+
+        console.log(`URL Recebida: `, url);
+
+        if(!url) {
+            await message.react('❌');
+            chat.sendMessage("preciso de uma url!!!! 🫠");
+            return;
+        }
+
+        let video = null;
+
+        try {
+            await message.react('⏳');
+
+            video = await youtubeService.baixarVideo(url);
+            const media = MessageMedia.fromFilePath(video);
+
+            await chat.sendMessage(media);
+
+            fs.unlinkSync(video);
+            await message.react('✅');
+        } catch (error) {
+
+            console.error('Ocorreu um erro ao executar o comando /youtube', error);
+            try { await message.react('❌'); } catch (e) {}
+            await chat.sendMessage("Deu erro ao baixar o vídeo. ❌");
+
+        } finally {
+            if (video && fs.existsSync(video)) {
+                try {
+                    fs.unlinkSync(video);
+                } catch (e) {
+                    console.error('Não foi possível deletar o arquivo temporário:', e);
+                }
+            }
+        }
+
+        return;
+    }
+
     // Comandos rápidos
     switch(message.body) {
         case "/sticker":
@@ -101,7 +161,6 @@ client.on('message_create', async (message) => {
 
                 } catch (error) {
                     await message.react('❌');
-                    throw error;
                 }
 
             }
