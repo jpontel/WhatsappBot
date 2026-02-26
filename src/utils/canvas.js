@@ -10,14 +10,13 @@ class Canvas {
         while(itens.length < 25)
             itens.push({ imageUrl: PLACEHOLDER, name: '?', artist: '?'});
 
-        // Monta a imagem da semaninha
         const canvas = createCanvas(SIZE, SIZE);
         const context = canvas.getContext('2d');
 
         context.fillStyle = '#111111';
         context.fillRect(0, 0, SIZE, SIZE);
 
-        for (let i = 0; i < 25; i++) {
+        for(let i = 0; i < 25; i++) {
             const col = i % GRID;
             const row = Math.floor(i / GRID);
 

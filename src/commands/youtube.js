@@ -4,12 +4,12 @@ const fs = require('fs');
 
 module.exports = {
     name: '/youtube',
-    description: 'Baixar videos do youtube',
+    description: 'Baixa videos do youtube a partir de um link.',
 
     execute: async (message, args) => {
         const url = args[0]; 
 
-        if (!url) {
+        if(!url) {
             await message.react('❌');
             return message.getChat().then(chat => chat.sendMessage("Preciso de uma url!!!! 🫠"));
         }
@@ -26,11 +26,14 @@ module.exports = {
             await message.react('✅');
 
         } catch (error) {
+
             console.error('Erro no comando /youtube:', error);
             try { await message.react('❌'); } catch (e) {}
-            await message.getChat().then(chat => chat.sendMessage("Deu erro ao baixar o vídeo. ❌"));
+
         } finally {
-            if (videoPath && fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+            
+            if (videoPath && fs.existsSync(videoPath)) 
+                fs.unlinkSync(videoPath);
         }
     }
 }

@@ -1,4 +1,5 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
 
 const diretorioChrome = process.env.IS_DESENV 
     ? process.env.CHROME_FOLDER_MACOS 
@@ -21,7 +22,6 @@ const client = new Client({
     }
 });
 
-const qrcode = require('qrcode-terminal');
 client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
 });

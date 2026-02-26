@@ -1,6 +1,6 @@
 module.exports = {
     name: '/sticker',
-    description: '',
+    description: 'Cria stickers para o whatsapp a partir de uma imagem.',
 
     execute: async(message, args) => {
         await message.react('⏳');

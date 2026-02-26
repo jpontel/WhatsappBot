@@ -14,7 +14,6 @@ process.on('unhandledRejection', (reason, promise) => {
 const comandos = carregarComandos();
 const botInicio = Math.floor(Date.now() / 1000);
 
-// Captura dos comandos de mensagem
 client.on('message_create', async (message) => {
 
     if (message.from?.endsWith('@newsletter')) return;
@@ -34,11 +33,16 @@ client.on('message_create', async (message) => {
     const comando = args.shift().toLowerCase();
 
     if(comandos.has(comando)) {
+
         try {
+
             await comandos.get(comando).execute(message, args);
+
         } catch (error) {
+            // Todo: Adicionar um logger.
             console.error(`Erro ao executar o comando ${comando}`);
         }
+
     }
 });
 
