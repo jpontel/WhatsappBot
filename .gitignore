@@ -3,3 +3,7 @@ node_modules/
 .wwebjs_cache/
 .env
 temp_videos/
+
+.gitignore
+package-lock.json
+package.json

@@ -2,11 +2,13 @@ const axios = require('axios');
 const { format } = require('node:path');
 
 const ENDPOINTS = {
-  TOP_ALBUMS: "user.getTopAlbums",
-  TOP_ARTISTS: "user.getTopArtists",
-  TOP_TRACKS: "user.getTopTracks",
-  TOP_TAGS: "user.getTopTags",
+  USER_TOP_ALBUMS: "user.getTopAlbums",
+  USER_TOP_ARTISTS: "user.getTopArtists",
+  USER_TOP_TRACKS: "user.getTopTracks",
+  USER_TOP_TAGS: "user.getTopTags",
+  USER_WEEKLY_TRACK_CHART: "user.getWeeklyTrackChart",
   USER_INFO: "user.getInfo",
+  CHART_TOP_TRACKS: "chart.getTopTracks"
 };
 
 const LASTFM_DEFAULT_IMAGE = '2a96cbd8b46e442fc41c2b86b821562f';
@@ -18,7 +20,7 @@ class LastfmService {
         try {
             const topAlbumsRecuperados = await axios.get(process.env.LASTFM_API_URL, {
                 params: {
-                    method: ENDPOINTS.TOP_ALBUMS,
+                    method: ENDPOINTS.USER_TOP_ALBUMS,
                     user: usuario,
                     limit: limite,
                     period: '7day',
@@ -79,8 +81,64 @@ class LastfmService {
         return albunsMapeados;
     }
 
-    async recuperarMaisOuvidasSemana(usuario) {
-        
+    async listarMaisOuvidasSemana(usuario) {
+        if(!usuario)
+            throw new Error("Usuário não informado!");
+
+        let data;
+        try {
+
+            const hoje = new Date();
+            const seteDiasAtras = new Date();
+            seteDiasAtras.setDate(hoje.getDate() - 7);
+
+            const to = Math.floor(hoje.getTime() / 1000);
+            const from = Math.floor(seteDiasAtras.getTime() / 1000);
+
+            const maisOuvidas = await axios.get(process.env.LASTFM_API_URL, {
+                params: {
+                    method: ENDPOINTS.USER_WEEKLY_TRACK_CHART,
+                    user: usuario,
+                    from:from,
+                    to: to,
+                    limit: 10,
+                    api_key: process.env.LASTFM_API_KEY,
+                    format: 'json'  
+                }
+            });
+
+            data = maisOuvidas.data;
+            
+        } catch (error) {
+            if (error.response) {
+                if (error.response.status === 404) {
+                    throw new Error(`Não achei o ${usuario} no Lastfm! ><`);
+                }
+                
+                throw new Error(`O Lastfm retornou um erro ${error.response.status}: ${error.response.data?.message || 'desconhecido'}`);
+
+            } else if (error.request) {
+
+                throw new Error('Lastfm não respondeu 🤯');
+
+            } else {
+                throw new Error(`Erro no código!!!!🤯🤯 ${error.message}`);
+            }
+        }
+
+        let tracks = [];
+
+        for(const track of data.weeklytrackchart.track) {
+            tracks.push({
+                musica: track.name,
+                artista: track.artist['#text'], 
+                contagem: Number(track.playcount), 
+                posicao: Number(track['@attr']?.rank)
+            });
+        }
+
+        return tracks;
+
     }
 
     async buscarCapaItunes(artista, album) {
