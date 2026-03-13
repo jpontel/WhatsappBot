@@ -4,14 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node ./src/index.js"
+    "start": "node ./src/index.js",
+    "start:debug": "node --inspect ./src/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/genai": "^1.43.0",
     "axios": "^1.13.5",
+    "better-sqlite3": "^12.6.2",
     "canvas": "^3.2.1",
     "dotenv": "^17.3.1",
     "qrcode-terminal": "^0.12.0",

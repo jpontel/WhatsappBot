@@ -4,9 +4,26 @@ module.exports = {
 
     execute: async(message, args) => {
         await message.react('⏳');
-        const media = await message.downloadMedia();
-
         const chat = await message.getChat();
+
+        let media = null;
+
+        if(message.hasMedia) {
+
+            media = await message.downloadMedia();
+
+        } else if(message.hasQuotedMsg) {
+            const mensagem = await message.getQuotedMessage();
+            if(mensagem.hasMedia)
+                media = await mensagem.downloadMedia();
+        }
+
+        if(!media) {
+            await chat.sendMessage("Precisa mandar uma foto ><");
+            await message.react('❌');
+            return;
+        }
+
 
         await chat.sendMessage(media, { 
             sendMediaAsSticker: true,

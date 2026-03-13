@@ -10,8 +10,14 @@ function carregarComandos() {
     for(const comando of listaComandos) {
         const comandoCarregado = require(path.join(arquivosComandos, comando));
 
-        if(comandoCarregado.name && comandoCarregado.execute)
+        if(
+            comandoCarregado.name 
+            && comandoCarregado.execute
+        ) {
+
             comandos.set(comandoCarregado.name, comandoCarregado); 
+
+        }
     }
     
     return comandos;

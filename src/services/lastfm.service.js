@@ -14,6 +14,9 @@ const ENDPOINTS = {
 const LASTFM_DEFAULT_IMAGE = '2a96cbd8b46e442fc41c2b86b821562f';
 
 class LastfmService {
+    
+    constructor() {}
+
     async recuperarAlbumsMaisOuvidosSemana(usuario, limite = 25) {
         let data;
 
@@ -65,6 +68,9 @@ class LastfmService {
 
                 console.log(`Imagem do albúm ${nome} não encontrada. Buscando no itunes...`);
                 const capaItunes = await this.buscarCapaItunes(artista, nome);
+
+                if(capaItunes) 
+                    console.log("Capa encontrada! Enviando...");
 
                 imageUrl = capaItunes ? capaItunes : null;
 
