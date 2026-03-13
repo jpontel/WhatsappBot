@@ -9,12 +9,12 @@ module.exports = {
     execute: async (message, args) => {
         const usuario = args[0];
 
+        const chat = await message.getChat();
+
         if(!usuario) {
             await message.react('❌');
-            return message.getChat().then(chat => chat.sendMessage("Não entendi qual a mona da semaninha!!!"));
+            return chat.sendMessage("Não entendi qual a mona da semaninha!!!");
         }
-
-        const chat = await message.getChat();
 
         try {
             await message.react('⏳');
@@ -34,6 +34,7 @@ module.exports = {
             if(error instanceof Error) {
                 
                 console.error(error.message);
+                return chat.sendMessage(error.message);
 
             } else {
                 chat.sendMessage("❌❌ deu ruim :p ❌❌");

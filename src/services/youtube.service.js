@@ -4,11 +4,11 @@ const youtubedl = require('youtube-dl-exec');
 
 const OUTPUT_DIR = path.resolve(__dirname, '../../temp_videos');
 
-if(!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR);
-}
+if(!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR); 
 
 class YoutubeService {
+
+    constructor() {}
 
     async baixarVideo(url) {
         const timestamp = Date.now();
@@ -33,6 +33,10 @@ class YoutubeService {
             console.error('Erro ao baixar o vídeo do youtube:', error);
             throw new Error('Não consegui baixar esse vídeo. O YouTube bloqueou ou o link é inválido.');
         }
+    }
+
+    async baixarMusica(url) {
+
     }
 }
 

@@ -1,6 +1,9 @@
 const { default: axios } = require("axios");
 
 class CraftService {
+
+    constructor() {}
+
     async listarDiretorios() {
         try {
             const diretoriosListados = await axios.get(`${process.env.CRAFT_API_URL}folders`);
