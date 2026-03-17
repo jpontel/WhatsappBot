@@ -5,8 +5,19 @@ const diretorioChrome = process.env.IS_DESENV
     ? process.env.CHROME_FOLDER_MACOS 
     : process.env.CHROME_FOLDER_LINUX;
 
+const telefone = process.env.TELEFONE_CELULAR;
+
 const client = new Client({
     authStrategy: new LocalAuth(),
+    ...(telefone ? {
+        pairWithPhoneNumber: {
+            phoneNumber: telefone
+        }
+    } : {}),
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+    },
     puppeteer: {
         executablePath: diretorioChrome,
         args: [
@@ -22,8 +33,18 @@ const client = new Client({
     }
 });
 
+client.on('code', (pairingCode) => {
+    console.log('\n=============================================');
+    console.log('📱 CÓDIGO DE CONEXÃO DO WHATSAPP:');
+    console.log(`👉  ${pairingCode}  👈`);
+    console.log('=============================================');
+    console.log('Vá no seu WhatsApp > Aparelhos Conectados > Conectar com Número');
+    console.log('E digite o código acima!\n');
+});
+
 client.on('qr', (qr) => {
-    qrcode.generate(qr, { small: true });
+    if(!telefone)
+        qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
