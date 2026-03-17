@@ -24,12 +24,17 @@ module.exports = {
             return;
         }
 
+        try {
 
-        await chat.sendMessage(media, { 
-            sendMediaAsSticker: true,
-            stickerName: 'Guido',
-            stickerAuthor: 'BotGuido'
-        });
+            await chat.sendMessage(media, { 
+                sendMediaAsSticker: true,
+                stickerName: 'Guido',
+                stickerAuthor: 'BotGuido'
+            });
+
+        } catch (error) {
+            return await message.react('❌');
+        }
         
         await message.react('✅');
     }

@@ -72,8 +72,24 @@ class GoogleCloudService {
                 history: historico
             });
 
+            const parts = [];
+
+            if(gerarConteudoDto.content)
+                parts.push({ text: gerarConteudoDto.content });
+
+            if(gerarConteudoDto.media) {
+
+                parts.push({
+                    inlineData: {
+                        data: gerarConteudoDto.media.data,
+                        mimeType: gerarConteudoDto.media.mimetype
+                    }
+                });
+                
+            }
+
             const result = await chatSession.sendMessage({
-                message: gerarConteudoDto.content
+                message: parts
             });
             const response = result.text;
 
@@ -170,6 +186,7 @@ class GoogleCloudService {
         }
         
     }
+    
 }
 
 module.exports = new GoogleCloudService();
