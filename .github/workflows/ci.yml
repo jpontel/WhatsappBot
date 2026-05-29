@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Verificação de tipos (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # --ignore-scripts pula o build dos módulos nativos (canvas, better-sqlite3).
+      # Não precisamos deles compilados pra rodar só o tsc — só dos .d.ts, que vêm no tarball.
+      - name: Instalar dependências (sem build de módulos nativos)
+        run: npm ci --ignore-scripts
+
+      - name: Rodar tsc --noEmit
+        run: npx tsc --noEmit
