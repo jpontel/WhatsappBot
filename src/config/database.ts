@@ -1,7 +1,12 @@
-const Database = require('better-sqlite3');
-const path = require('node:path');
+import DatabaseConstructor from 'better-sqlite3'; 
+import type { Database } from 'better-sqlite3'; 
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
-const db = new Database(path.join(__dirname, '../../whatsapp-bot.db'));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const db: Database = new DatabaseConstructor(path.join(__dirname, '../../whatsapp-bot.db'))
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS mensagens (
@@ -23,4 +28,4 @@ db.exec(`
   );
 `);
 
-module.exports = db;
+export default db;

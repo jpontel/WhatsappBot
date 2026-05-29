@@ -1,40 +1,45 @@
-const axios = require('axios');
-const { format } = require('node:path');
+import axios from 'axios';
+import { ENV } from '../config/env.js';
 
-const ENDPOINTS = {
-  USER_TOP_ALBUMS: "user.getTopAlbums",
-  USER_TOP_ARTISTS: "user.getTopArtists",
-  USER_TOP_TRACKS: "user.getTopTracks",
-  USER_TOP_TAGS: "user.getTopTags",
-  USER_WEEKLY_TRACK_CHART: "user.getWeeklyTrackChart",
-  USER_INFO: "user.getInfo",
-  CHART_TOP_TRACKS: "chart.getTopTracks"
-};
-
-const LASTFM_DEFAULT_IMAGE = '2a96cbd8b46e442fc41c2b86b821562f';
-
-class LastfmService {
+export class LastfmService {
     
-    constructor() {}
+    private lastfmApi: string;
+    private endpoints: Record<string, string>;
+    private lastfmDefaultImage: string;
 
-    async recuperarAlbumsMaisOuvidosSemana(usuario, limite = 25) {
+    constructor() {
+        this.lastfmApi = ENV.LASTFM_API_URL ?? "https://ws.audioscrobbler.com/2.0/";
+        this.lastfmDefaultImage = "2a96cbd8b46e442fc41c2b86b821562f";
+
+        this.endpoints = {
+            USER_TOP_ALBUMS: "user.getTopAlbums",
+            USER_TOP_ARTISTS: "user.getTopArtists",
+            USER_TOP_TRACKS: "user.getTopTracks",
+            USER_TOP_TAGS: "user.getTopTags",
+            USER_WEEKLY_TRACK_CHART: "user.getWeeklyTrackChart",
+            USER_INFO: "user.getInfo",
+            CHART_TOP_TRACKS: "chart.getTopTracks"
+        }
+    }
+
+    async recuperarAlbumsMaisOuvidosSemana(usuario: string, limite = 25) {
         let data;
 
         try {
-            const topAlbumsRecuperados = await axios.get(process.env.LASTFM_API_URL, {
+            const topAlbumsRecuperados = await axios.get(this.lastfmApi, {
                 params: {
-                    method: ENDPOINTS.USER_TOP_ALBUMS,
+                    method: this.endpoints.USER_TOP_ALBUMS,
                     user: usuario,
                     limit: limite,
                     period: '7day',
-                    api_key: process.env.LASTFM_API_KEY,
+                    api_key: ENV.LASTFM_API_KEY,
                     format: 'json'                
                 },
             });
 
             data = topAlbumsRecuperados.data;
 
-        } catch (error) {
+        } catch (error: any) {
             if (error.response) {
                 if (error.response.status === 404) {
                     throw new Error(`Não achei o ${usuario} no Lastfm! ><`);
@@ -53,16 +58,16 @@ class LastfmService {
 
         const albums = data.topalbums?.album ?? [];
 
-        const albunsMapeados = await Promise.all(albums.map(async (album) => {
+        const albunsMapeados = await Promise.all(albums.map(async (album: { name: any; artist: { name: any; }; image: any[]; playcount: any; }) => {
             const nome = album.name;
             const artista = album.artist.name;
             
-            let imageUrl = album.image?.find((i) => i.size === 'extralarge')?.['#text'] 
+            let imageUrl = album.image?.find((i: { size: string; }) => i.size === 'extralarge')?.['#text'] 
                         || album.image?.[3]?.['#text'] 
                         || album.image?.[2]?.['#text']
                         || null;
 
-            const imagemInvalida = !imageUrl || imageUrl.trim() === '' || imageUrl.includes(LASTFM_DEFAULT_IMAGE);
+            const imagemInvalida = !imageUrl || imageUrl.trim() === '' || imageUrl.includes(this.lastfmDefaultImage);
 
             if(imagemInvalida) {
 
@@ -87,7 +92,7 @@ class LastfmService {
         return albunsMapeados;
     }
 
-    async listarMaisOuvidasSemana(usuario) {
+    async listarMaisOuvidasSemana(usuario: any) {
         if(!usuario)
             throw new Error("Usuário não informado!");
 
@@ -101,21 +106,21 @@ class LastfmService {
             const to = Math.floor(hoje.getTime() / 1000);
             const from = Math.floor(seteDiasAtras.getTime() / 1000);
 
-            const maisOuvidas = await axios.get(process.env.LASTFM_API_URL, {
+            const maisOuvidas = await axios.get(this.lastfmApi, {
                 params: {
-                    method: ENDPOINTS.USER_WEEKLY_TRACK_CHART,
+                    method: this.endpoints.USER_WEEKLY_TRACK_CHART,
                     user: usuario,
                     from:from,
                     to: to,
                     limit: 10,
-                    api_key: process.env.LASTFM_API_KEY,
+                    api_key: ENV.LASTFM_API_KEY,
                     format: 'json'  
                 }
             });
 
             data = maisOuvidas.data;
             
-        } catch (error) {
+        } catch (error: any) {
             if (error.response) {
                 if (error.response.status === 404) {
                     throw new Error(`Não achei o ${usuario} no Lastfm! ><`);
@@ -147,7 +152,7 @@ class LastfmService {
 
     }
 
-    async buscarCapaItunes(artista, album) {
+    async buscarCapaItunes(artista: any, album: any) {
         try {
             const recuperarAlbum = encodeURIComponent(`${artista} ${album}`);
             const { data } = await axios.get(`https://itunes.apple.com/search?term=${recuperarAlbum}&entity=album&limit=1`);
@@ -164,5 +169,3 @@ class LastfmService {
         }
     }
 }
-
-module.exports = new LastfmService();

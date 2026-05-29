@@ -7,3 +7,11 @@ temp_videos/
 .gitignore
 package-lock.json
 package.json
+
+whatsapp-bot.db
+
+src/config/database.js
+auth_info_baileys/
+tsconfig.json
+
+src/config/env.ts

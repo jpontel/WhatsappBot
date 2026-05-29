@@ -1,7 +1,7 @@
-const { createCanvas, loadImage } = require('canvas');
+import { createCanvas, loadImage } from 'canvas';
 
-class Canvas {
-    async criarCanvas(itens) {
+export class Canvas {
+    async criarCanvas(itens: any) {
         const CELL = 150;           // px por célula
         const GRID = 5;             // 5x5
         const SIZE = CELL * GRID;   // 750x750 total
@@ -16,7 +16,7 @@ class Canvas {
         context.fillStyle = '#111111';
         context.fillRect(0, 0, SIZE, SIZE);
 
-        for(let i = 0; i < 25; i++) {
+        const promises = itens.slice(0, 25).map(async(item: any, i: number) => {
             const col = i % GRID;
             const row = Math.floor(i / GRID);
 
@@ -25,7 +25,7 @@ class Canvas {
 
             try {
                 
-                const src = itens[i].imageUrl || PLACEHOLDER;
+                const src = item.imageUrl || PLACEHOLDER;
                 const image = await loadImage(src);
 
                 context.drawImage(image, x, y, CELL, CELL);
@@ -34,11 +34,10 @@ class Canvas {
                 context.fillStyle = '#2a2a2a';
                 context.fillRect(x, y, CELL, CELL);
             }
-            
-        }
+        });
 
-        return canvas.toBuffer('image/png');
+        await Promise.all(promises);
+
+        return canvas.toBuffer('image/jpeg', { quality: 0.8 });
     }
 }
-
-module.exports = new Canvas();
