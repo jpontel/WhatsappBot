@@ -1,10 +1,8 @@
 import './config/env.js';
 
-import type { WASocket, WAMessage, MessageUpsertType } from '@whiskeysockets/baileys';
-
-import makeWASocket, { 
-    useMultiFileAuthState, 
-    DisconnectReason, 
+import makeWASocket, {
+    useMultiFileAuthState,
+    DisconnectReason,
     Browsers,
     fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys';
@@ -13,8 +11,7 @@ import { Boom } from '@hapi/boom';
 import NodeCache from 'node-cache';
 import pino from 'pino';
 
-import carregarComandos from './core/comandos.js';
-import type { ComandoExecutarDto } from './dto/comandos.dto.js';
+import { enviarMensagem } from './core/dispatcher.js';
 import { whatsappService } from './services/whatsapp.service.js';
 import { startMcpServer } from './mcp/mcp.server.js';
 
@@ -94,65 +91,12 @@ async function main() {
     });
 
     sock.ev.on('messages.upsert', async(messageDto) => {
-        enviarMensagem(sock, messageDto)
-    });
-}
-
-export async function enviarMensagem(
-    sock: WASocket, 
-    messageDto: {
-        messages: WAMessage[];
-        type: MessageUpsertType;
-        requestId?: string;
-    } 
-) {
-    try {
-
-        if(messageDto.type !== 'notify') return;
-
-        const comandos = await carregarComandos();
-
-        for(const msg of messageDto.messages) {
-
-            if(
-                msg.key.remoteJid === '5547992706378'
-                || msg.key.remoteJid?.endsWith('@newsletter')
-            ) {
-                return;
-            } 
-
-            const jid = msg.key.remoteJid!; 
-
-            const text = msg.message?.conversation || 
-                        msg.message?.extendedTextMessage?.text || 
-                        msg.message?.imageMessage?.caption || 
-                        msg?.message?.videoMessage?.caption;
-
-
-            if(text) {
-                console.log(`📩 Mensagem de ${jid}: ${text}`);
-
-                const comando = text.split(' ')[0]?.toLowerCase();
-                const instrucao = text.slice(comando?.length).trim();
-
-                const comandoExecutarDto: ComandoExecutarDto = {
-                    sock: sock,
-                    conteudo: instrucao,
-                    usuarioJid: jid,
-                    msg: msg
-                };
-
-                if(comandos.has(comando)) {
-                    await comandos.get(comando).execute(comandoExecutarDto);
-                }
-
-            }
-
+        try {
+            await enviarMensagem(sock, messageDto);
+        } catch (error) {
+            console.error("Erro no dispatcher:", error);
         }
-
-    } catch (error) {
-        throw error;
-    }
+    });
 }
 
 // MCP Server sobe uma única vez no boot — main() é chamado recursivamente em reconexões,
