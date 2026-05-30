@@ -16,8 +16,9 @@ RUN apt-get update && apt-get install -y \
 # Cria o diretório de trabalho
 WORKDIR /app
 
-# Copia apenas os arquivos de dependências primeiro (otimiza o cache do Docker)
-COPY package*.json ./
+# Copia só o package.json (o package-lock.json é legado da era pré-pnpm e está
+# dessincronizado — deixar o npm resolver a árvore evita "Invalid Version" no dedup)
+COPY package.json ./
 
 # Instala as dependências (incluindo devDependencies para rodar o tsx)
 RUN npm install
@@ -25,8 +26,8 @@ RUN npm install
 # Copia o restante dos arquivos do projeto
 COPY . .
 
-# Expõe a porta (caso seu express use a 3000, por exemplo)
-EXPOSE 3000
+# Porta do servidor MCP (StreamableHTTP) consumido pelo agente
+EXPOSE 3001
 
 # Comando para rodar o bot
 CMD ["npm", "run", "start"]

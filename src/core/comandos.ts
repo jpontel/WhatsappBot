@@ -5,16 +5,16 @@ import { fileURLToPath, pathToFileURL } from 'url';
 const filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(filename);
 
-export default async function carregarComandos() {
+export default async function carregarComandos(dir?: string) {
     const comandos = new Map();
 
-    const comandosArquivos = path.join(__dirname, '../commands');
+    const comandosArquivos = dir ?? path.join(__dirname, '../commands');
     const comandosLista = fs.readdirSync(comandosArquivos).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
 
     for(const arquivo of comandosLista) {
         const arquivoCaminho = path.join(comandosArquivos, arquivo);
         const urlArquivo = pathToFileURL(arquivoCaminho).href;
-        
+
         const modulo = await import(urlArquivo);
         const comandoCarregado = modulo.default || modulo;
 
