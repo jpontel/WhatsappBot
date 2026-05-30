@@ -6,7 +6,7 @@ import { buscarPorNumero } from '../repository/pessoa.repository.js';
 import axios from 'axios';
 import pino from 'pino';
 
-const AGENT_TIMEOUT_MS = 90_000;
+const AGENT_TIMEOUT_MS = 180_000;
 
 export default {
     name: '/p',
