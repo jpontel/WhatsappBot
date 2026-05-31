@@ -1,10 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { whatsappService } from "../services/whatsapp.service.js";
+import { youtubeService } from "../services/youtube.service.js";
+import { LastfmService } from "../services/lastfm.service.js";
 import { Sticker, StickerTypes } from 'wa-sticker-formatter';
 import express, { type Request, type Response } from 'express';
+import fs from 'node:fs';
 import { ENV } from "../config/env.js";
 import { z } from 'zod';
+
+const lastfmService = new LastfmService();
 
 const app = express();
 // imagens base64 estouram o limite padrão de 100kb do express
@@ -97,6 +102,60 @@ export async function reagirHandler(
     }
 }
 
+export async function chartsLastfmHandler(
+    { usuario }: { usuario: string }
+): Promise<McpToolResult> {
+    try {
+        const charts = await lastfmService.listarMaisOuvidasSemana(usuario);
+        if (!charts?.length) return ok(`Nenhuma música ouvida na semana para ${usuario}.`);
+
+        const linhas = charts
+            .map((c: { posicao: number; musica: string; artista: string; contagem: number }) =>
+                `${c.posicao}. ${c.musica} — ${c.artista} (${c.contagem}x)`)
+            .join('\n');
+
+        return ok(`Mais ouvidas da semana de ${usuario}:\n${linhas}`);
+    } catch (error) {
+        return fail(`❌ Falha ao buscar charts: ${(error as Error).message}`);
+    }
+}
+
+export async function baixarMusicaHandler(
+    { jid, url }: { jid: string; url: string }
+): Promise<McpToolResult> {
+    let caminho: string | null = null;
+    try {
+        const sock = whatsappService.recuperarInstancia();
+        caminho = await youtubeService.baixarVideoEmMp3(url);
+        await sock.sendMessage(jid, { audio: { url: caminho }, mimetype: 'audio/mpeg' });
+        return ok(`✅ Áudio enviado para ${jid}`);
+    } catch (error) {
+        return fail(`❌ Falha ao baixar/enviar a música: ${(error as Error).message}`);
+    } finally {
+        if (caminho && fs.existsSync(caminho)) {
+            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+        }
+    }
+}
+
+export async function baixarVideoYoutubeHandler(
+    { jid, url }: { jid: string; url: string }
+): Promise<McpToolResult> {
+    let caminho: string | null = null;
+    try {
+        const sock = whatsappService.recuperarInstancia();
+        caminho = await youtubeService.baixarVideo(url);
+        await sock.sendMessage(jid, { video: { url: caminho } });
+        return ok(`✅ Vídeo enviado para ${jid}`);
+    } catch (error) {
+        return fail(`❌ Falha ao baixar/enviar o vídeo: ${(error as Error).message}`);
+    } finally {
+        if (caminho && fs.existsSync(caminho)) {
+            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+        }
+    }
+}
+
 function inicializarServidor() {
     const server = new McpServer({
         name: 'Clarice-Whatsapp-Bridge',
@@ -156,6 +215,41 @@ function inicializarServidor() {
             }
         },
         reagirHandler
+    );
+
+    server.registerTool(
+        "charts_lastfm",
+        {
+            description: "Retorna as 10 músicas mais ouvidas na última semana de um usuário do Last.fm (texto). Requer o nome de usuário do Last.fm.",
+            inputSchema: {
+                usuario: z.string().describe("Nome de usuário no Last.fm.")
+            }
+        },
+        chartsLastfmHandler
+    );
+
+    server.registerTool(
+        "baixar_musica",
+        {
+            description: "Baixa o áudio (mp3) de um link do YouTube e ENVIA como áudio para o JID. Use para 'baixa essa música <link>'.",
+            inputSchema: {
+                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
+                url: z.string().describe("Link do YouTube da música.")
+            }
+        },
+        baixarMusicaHandler
+    );
+
+    server.registerTool(
+        "baixar_video_youtube",
+        {
+            description: "Baixa um vídeo do YouTube e ENVIA como vídeo para o JID. Use para 'baixa esse vídeo <link>'.",
+            inputSchema: {
+                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
+                url: z.string().describe("Link do YouTube do vídeo.")
+            }
+        },
+        baixarVideoYoutubeHandler
     );
 
     return server;
