@@ -1,20 +1,11 @@
-node_modules/
-.wwebjs_auth/
-.wwebjs_cache/
-.env
-temp_videos/
+# Raiz do monorepo — cada subprojeto (whatsapp-bot/, agente/) tem seu próprio .gitignore
+# que cuida de node_modules, .venv, .env, *.db, auth_info_baileys, __pycache__, etc.
 
-.gitignore
-package-lock.json
-package.json
+# Config/local do Claude Code (settings.local.json, locks de tarefas)
+.claude/
 
-whatsapp-bot.db
-
-src/config/database.js
-auth_info_baileys/
-tsconfig.json
-
-src/config/env.ts
+# Caches de ferramentas na raiz
+.ruff_cache/
 
 .DS_Store
-whatsapp-bot.db
+*.log

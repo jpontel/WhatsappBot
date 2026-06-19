@@ -1,88 +1,82 @@
 # CLAUDE.md
 
-Este arquivo fornece orientações para o Claude Code (claude.ai/code) ao trabalhar com o código deste repositório.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Comandos de execução / desenvolvimento
+Identificadores, mensagens e documentação aqui são em **português (pt-BR)** — siga essa convenção em código novo.
 
-```bash
-npm run start           # tsx watch em src/index.ts (entrypoint)
-npm run start:debug     # tsx com --inspect para o debugger do Node
-npm run inspect:mcp     # inicia o @modelcontextprotocol/inspector contra o servidor MCP
+## Estrutura do repositório
+
+Este diretório agrupa dois projetos independentes que cooperam em tempo de execução:
+
+```
+bot/
+├── whatsapp-bot/   # client WhatsApp (Baileys, Node/TS) — repo Git próprio
+└── agente/         # agente ADK (Python/FastAPI) que orquestra o bot via MCP
 ```
 
-**Não há etapa de build, linter, nem framework de testes configurado** — o `tsx` executa TypeScript diretamente. O único `start` é modo de desenvolvimento (watch).
+A raiz **não é** um repositório Git. O `.git` vive dentro de `whatsapp-bot/`. `agente/` é um projeto Python separado ao lado — não há lockfile/workspace compartilhado na raiz.
 
-Docker: `docker compose -f docker.compose.yml up --build` (o arquivo se chama `docker.compose.yml`, e não o convencional `docker-compose.yml`). O contêiner monta `auth_info_baileys/` para que a sessão do WhatsApp sobreviva aos rebuilds.
+### `whatsapp-bot/` — client de interface
 
-## Pegadinhas do sistema de módulos
+Bot Node.js + TypeScript que conecta ao WhatsApp via Baileys e despacha comandos digitados pelo usuário. Detalhes (comandos npm, ESM/NodeNext, sistema de comandos auto-descoberto, persistência SQLite, servidor MCP) ficam em `whatsapp-bot/CLAUDE.md`.
 
-- `package.json` define `"type": "module"` e `tsconfig.json` usa `module: nodenext` + `verbatimModuleSyntax: true` + `isolatedModules: true`.
-- Imports relativos locais **devem usar a extensão `.js`** mesmo quando estiverem importando um arquivo `.ts` (ex.: `import x from './services/foo.service.js'`). Isso é inegociável sob o NodeNext.
-- Imports apenas de tipos devem usar `import type { ... }` (o `verbatimModuleSyntax` força isso).
-- Alguns arquivos legados (ex.: `src/repository/agendamento.repository.ts`, `src/services/youtube.service.ts`) ainda usam CommonJS (`require`/`module.exports`). Eles não vão carregar com a configuração ESM atual e precisam ser convertidos antes de serem religados.
+Pontos relevantes para a integração entre os dois projetos:
+- O `whatsapp-bot` expõe um **servidor MCP** em `http://localhost:3001/mcp` (`StreamableHTTP`, stateless) com as tools `enviar_texto`, `enviar_imagem`, `enviar_sticker` e `reagir`. É a única superfície que o `agente/` enxerga do bot.
+- O comando `/p` foi convertido em ponte HTTP: chama `POST {AGENT_URL}/chat` no agente, envia o texto retornado e reage com `💅`/`❌`. Toda a lógica de persona/histórico/IA agora mora no `agente/`.
 
-## Arquitetura
+### `agente/` — agente ADK
 
-Este é um bot de WhatsApp pessoal (comandos e identificadores em português). Ele se conecta ao WhatsApp via **Baileys** (`@whiskeysockets/baileys`), não via whatsapp-web.js — arquivos antigos como `whatsapp.client.js` e similares são vestígios.
+Servidor FastAPI Python que hospeda um `LlmAgent` do Google ADK. Detalhes (Poetry, layout, como rodar) ficam em `agente/CLAUDE.md`.
 
-### Fluxo de conexão (`src/index.ts`)
+Pontos relevantes para a integração:
+- Endpoint principal: `POST /chat` com `{ chatId, mensagem, msgKey, midia? }`. Resposta: `{ texto, tools_acionadas }`. Texto retornado é enviado pelo bot; tools de efeito colateral (reagir, sticker, imagem) são acionadas pelo agente via MCP durante a execução.
+- Sessão por `chatId` (= JID do WhatsApp) via ADK `DatabaseSessionService` em `agente.db` (SQLite, **separado** do `whatsapp-bot.db`).
+- Agente consome o MCP do bot (`MCPToolset` apontando para `MCP_URL`) — fluxo bidirecional: bot → agente via HTTP, agente → bot via MCP.
 
-`main()` cria um socket Baileys usando `useMultiFileAuthState('auth_info_baileys')` e autentica via **pairing code** (sem QR): na primeira execução ele chama `sock.requestPairingCode(TELEFONE_CELULAR)` e imprime o código no terminal. Em `connection.update === 'close'` ele reconecta automaticamente, exceto quando o motivo da desconexão for `loggedOut`. Desconexões que exigem reinício usam um atraso maior, de 15s; as demais, 5s.
+## Fluxo end-to-end
 
-`messages.upsert` é o ponto único de dispatch — `enviarMensagem(sock, messageDto)` filtra newsletters e um JID hardcoded, extrai o texto de `conversation`/`extendedTextMessage`/legenda de imagem ou vídeo, separa o primeiro token como nome do comando, e busca no mapa de comandos.
-
-### Sistema de comandos (`src/core/comandos.ts` + `src/commands/`)
-
-Os comandos são descobertos automaticamente: `carregarComandos()` lê todo arquivo `.ts`/`.js` em `src/commands/`, faz `import()` dinâmico, e registra qualquer um cujo default export tenha `name` e `execute`. **Para adicionar um comando, basta criar um arquivo com este formato — sem etapa de registro:**
-
-```ts
-import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
-
-export default {
-    name: '/exemplo',                      // primeiro token digitado pelo usuário; convenção: barra inicial
-    description: '...',
-    execute: async (dto: ComandoExecutarDto) => { /* ... */ }
-};
+```
+WhatsApp ─msg─▶ whatsapp-bot ──/p──▶ POST :8000/chat ──▶ agente (ADK + Gemini)
+                                                            │
+                                                            ▼ tool calls
+                                                          POST :3001/mcp
+                                                            │
+                                                            ▼
+                                                          whatsapp-bot ──▶ WhatsApp
 ```
 
-`ComandoExecutarDto` (`src/dto/comandos.dto.ts`) carrega `{ sock, usuarioJid, conteudo, msg }`, onde `conteudo` é o restante da mensagem após o token do comando. Os comandos geralmente reagem à `msg.key` com um emoji para sinalizar progresso (`⏳` → `✅`/`❌`/`💅`).
+## Subindo o ambiente local
 
-O reload acontece **a cada mensagem recebida** (`carregarComandos()` é chamado dentro de `enviarMensagem`). Isso significa que edições em arquivos de comando entram em vigor sem reiniciar, mas também significa que `src/commands/` não deve conter arquivos que não sejam comandos — `src/commands/arquivados/` é um subdiretório de comandos desativados, e só é ignorado porque o `readdirSync` não é recursivo.
+São dois processos. Ordem importa: o agente precisa do MCP do bot disponível.
 
-### Persistência (`src/config/database.ts`)
+1. `cd whatsapp-bot && npm run start` — sobe Baileys + MCP server na 3001.
+2. `cd agente && poetry run uvicorn agente.main:app --reload --port 8000` — sobe FastAPI.
 
-`better-sqlite3` apontando para `whatsapp-bot.db` (commitado no repo). Duas tabelas são criadas automaticamente no import:
+## Servidor de produção (Linode / Akamai)
 
-- `mensagens` — legado. Antes guardava o histórico de chat do `/p` por `chat_id`. Hoje o `/p` é só uma ponte HTTP para o projeto `agente/`, que gerencia sessão própria (ADK `DatabaseSessionService` em `agente.db`). A tabela continua sendo criada mas não é mais lida/escrita pelos comandos ativos.
-- `agendamento` — mensagens de saída agendadas (expressão cron + status). O código do repositório existe, mas ainda não está ligado ao runtime.
+A instância de produção fica na Linode. Gestão de recursos pela `linode-cli` (instalada via `pip3 install linode-cli`; autenticar com `linode-cli configure`).
 
-### Serviços (`src/services/`)
+- **Instância:** label `clarice` · id `94666542` · região `us-ord` · Ubuntu 24.04 · plano `g6-standard-1` (2 GB RAM, 50 GB disco) · swap de 2 GB em `/swapfile`.
+- **IP público:** `172.232.7.171`.
+- **Conexão SSH:** `ssh root@172.232.7.171` — acesso por **chave** (a `~/.ssh/id_ed25519` desta máquina já está autorizada em `/root/.ssh/authorized_keys`). **Nunca** colocar a senha de root neste arquivo (ele é versionado).
+- **Achar o IP de novo:** `linode-cli linodes list --text --format "id,label,status,ipv4"`.
 
-Cada um é uma classe instanciada por chamada de comando (sem container de DI). Os mais notáveis:
-- `GoogleCloudService` — geração de texto + imagem do Gemini. **Não é mais usado pelo `/p`** (que virou ponte para o `agente/`); fica disponível para outros comandos que ainda precisem chamar Gemini direto. A persona/dicionário de gírias hardcoded aqui foi migrada para `agente/src/agente/agent/instruction.py` — se editar a persona, edite no agente.
-- `LastfmService` — usado pelo `/semaninha` para montar a colagem 5×5 de álbuns da semana. Faz fallback para a Search API do iTunes quando o Last.fm retorna a capa placeholder padrão (identificada pelo hash `2a96cbd8b46e442fc41c2b86b821562f`).
-- `whatsappService` (`src/services/whatsapp.service.ts`) — singleton que guarda o `WASocket` ativo, pensado para que o servidor MCP alcance a conexão viva. Atualmente `inicializarInstancia` **não é chamado** em `index.ts` (a linha está comentada), então a tool do MCP lançaria "Whatsapp Socket não inicializado" se fosse invocada.
+### Layout no servidor (arquitetura nova, em produção)
 
-### Servidor MCP (`src/mcp/mcp.server.ts`)
+Deploy em **`/root/clarice/`** com a arquitetura de dois serviços (espelha este repo). Enviado por `rsync` (deploy manual, sem git no servidor).
 
-Sobe no boot (`startMcpServer()` chamado em `index.ts:160`) em `http://localhost:${MCP_PORT}/mcp` (default 3001), modo `StreamableHTTPServerTransport` **stateless** — 1 server novo por request HTTP, sem sessão persistente. `whatsappService.inicializarInstancia(sock)` é chamado em `connection === 'open'` (`index.ts:72`).
+- **2 containers** via `/root/clarice/docker-compose.yml`:
+  - `bot-baileys` (imagem `clarice-whatsapp-bot`) — Baileys + MCP na 3001.
+  - `agente-adk` (imagem `clarice-agente`) — FastAPI + ADK na 8000.
+  - Conversam pela rede interna do compose: bot→agente `http://agente:8000`, agente→bot `http://whatsapp-bot:3001/mcp` (overrides em `environment:` no compose).
+- **Persistência:** `./whatsapp-bot/auth_info_baileys` (bind, sessão WhatsApp) + volumes nomeados `clarice_bot_db` e `clarice_agente_db` (montados em `/app/data`; os SQLite ficam em `data/`).
+- **`.env`:** um por serviço (`whatsapp-bot/.env`, `agente/.env`), enviados por rsync; **não** versionados. `TELEFONE_CELULAR=5547992706378` (casa com a sessão preservada).
+- **Operação:** `cd /root/clarice && docker compose up -d --build` · `docker compose restart` · `docker logs -f bot-baileys` / `agente-adk`.
 
-Tools registradas hoje (todas usam `whatsappService.recuperarInstancia()` para acessar o socket vivo):
-- `enviar_texto(jid, texto)` — mensagem de texto.
-- `enviar_imagem(jid, mediaBase64, legenda?)` — imagem PNG/JPG.
-- `enviar_sticker(jid, mediaBase64)` — converte PNG/JPG em figurinha via `wa-sticker-formatter`.
-- `reagir(jid, msgKey, emoji)` — reação na mensagem original; `msgKey` é o objeto `proto.IMessageKey` (id/remoteJid/fromMe/participant).
+**Redeploy de código:** `rsync` dos projetos para `/root/clarice/` (excluir `node_modules`, `.venv`, `.git`, `auth_info_baileys`, `*.db`, `data`) → `docker compose up -d --build`. Como bot e agente compartilham a sessão WhatsApp, ao recriar o `bot-baileys` evite duas instâncias simultâneas (erro `conflict: replaced`).
 
-Para adicionar uma tool nova, replicar o padrão (`server.registerTool(nome, { description, inputSchema: zodShape }, handler)`) — `handler` deve devolver `{ content: [...] }` em sucesso e `{ isError: true, content: [...] }` em falha. **Não** expor tool genérica de "executar comando" — verbos de domínio dão schemas mais claros para o LLM consumidor.
+**Rollback:** a versão antiga (monolítica) fica preservada em `/root/bot` (container removido). Para voltar: `cd /root/clarice && docker compose down && cd /root/bot && docker compose up -d`.
 
-O consumidor atual é o projeto `agente/` (na raiz do repo, fora deste diretório).
+**Dockerfiles:** o do `whatsapp-bot` copia só `package.json` e roda `npm install` (o `package-lock.json` é legado pré-pnpm e quebra o dedup do npm — "Invalid Version"). O do `agente` usa Poetry com `PYTHONPATH=/app/src`.
 
-### Ambiente
-
-O `.env` é carregado por `src/config/env.ts` — importe esse arquivo primeiro (e apenas via `import './config/env.js'` no topo de `index.ts`) para que `process.env` esteja populado antes que qualquer construtor de serviço o leia. Constantes centralizadas ficam no objeto `ENV` exportado; prefira adicionar variáveis novas lá em vez de ler `process.env` direto. Chaves em uso: `TELEFONE_CELULAR`, `GEMINI_API_KEY`, `LASTFM_API_KEY`/`LASTFM_API_URL`/`LASTFM_SHARED_SECRET`, `CRAFT_API_URL`, `HEAVY_API_URL`/`HEAVY_API_KEY`, `IS_DESENV`, `CHROME_FOLDER_MACOS`/`CHROME_FOLDER_LINUX`, `MCP_PORT` (default 3001), `AGENT_URL` (default `http://localhost:8000` — URL base do projeto `agente/`, usada pelo `/p`).
-
-## Convenções
-
-- Identificadores, comentários, mensagens de log e strings voltadas ao usuário ficam **em português (pt-BR)**. Mantenha o código novo consistente — não traduza nomes existentes para inglês.
-- Respostas ao usuário são informais/divertidas (emojis, gírias). Mantenha o tom ao adicionar respostas de comando ou mensagens de erro.
-- Erros dentro do `execute` de um comando devem reagir com `❌` na mensagem original e enviar uma resposta de texto curta, sem derrubar o dispatcher.
+> Pendência: a `GEMINI_API_KEY` do `agente/.env` em produção está com a chave de **desenvolvimento** (testada com os modelos `gemini-3`), não a chave antiga de produção. Trocar e reiniciar o `agente-adk` se quiser usar o billing de produção.

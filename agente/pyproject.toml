@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "agente"
+version = "0.1.0"
+description = "Agente ADK que orquestra comandos do whatsapp-bot via MCP"
+authors = ["jose <jose.pontel@waproject.com.br>"]
+readme = "README.md"
+# Sem pacote instalável: rodamos via PYTHONPATH=/app/src (Docker) e os módulos
+# de topo vivem direto em src/ (config, main, api/, client/, tools/, repo/, shared/).
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+google-adk = ">=1.0,<2.0"
+fastapi = ">=0.118,<1.0"
+uvicorn = { extras = ["standard"], version = ">=0.32,<1.0" }
+pydantic = ">=2.9,<3.0"
+pydantic-settings = ">=2.6,<3.0"
+httpx = ">=0.28,<1.0"
+sqlite-vec = "^0.1.9"
+# Memória visual (reconhecimento facial). insightface compila uma extensão no
+# build (precisa de build-essential no Dockerfile); onnxruntime/opencv vêm como
+# wheels. numpy fixado em <2 por compatibilidade com o insightface 0.7.x.
+insightface = "^0.7.3"
+onnxruntime = "^1.19"
+opencv-python-headless = "^4.10"
+numpy = ">=1.26,<2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+ruff = "^0.7"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["poetry-core>=1.8"]
+build-backend = "poetry.core.masonry.api"
