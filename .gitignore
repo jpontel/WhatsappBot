@@ -15,3 +15,6 @@ auth_info_baileys/
 tsconfig.json
 
 src/config/env.ts
+
+.DS_Store
+whatsapp-bot.db

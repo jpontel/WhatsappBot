@@ -1,16 +1,23 @@
-const fs = require('fs');
-const path = require('path');
-const youtubedl = require('youtube-dl-exec');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import youtubedlDefault from 'youtube-dl-exec';
 
+// O pacote (CommonJS) exporta a própria função; os tipos sob NodeNext não a
+// expõem como chamável, então tipamos explicitamente o callable.
+const youtubedl = youtubedlDefault as unknown as (
+    url: string,
+    flags: Record<string, unknown>,
+) => Promise<any>;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = path.resolve(__dirname, '../../temp_videos');
 
-if(!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR); 
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
-class YoutubeService {
+export class YoutubeService {
 
-    constructor() {}
-
-    async baixarVideo(url) {
+    async baixarVideo(url: string): Promise<string> {
         const timestamp = Date.now();
         const outputPath = path.join(OUTPUT_DIR, `video_${timestamp}.mp4`);
 
@@ -18,12 +25,12 @@ class YoutubeService {
 
         try {
             await youtubedl(url, {
-                format: 'best[ext=mp4][height<=1080]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best', 
+                format: 'best[ext=mp4][height<=1080]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
                 output: outputPath,
                 noCheckCertificates: true,
                 noWarnings: true,
                 preferFreeFormats: true,
-                addHeader: ['referer:youtube.com', 'user-agent:googlebot']
+                addHeader: ['referer:youtube.com', 'user-agent:googlebot'],
             });
 
             console.log('Download concluído!');
@@ -35,7 +42,7 @@ class YoutubeService {
         }
     }
 
-    async baixarVideoEmMp3(url) {
+    async baixarVideoEmMp3(url: string): Promise<string> {
         const timestamp = Date.now();
         const outputPath = path.join(OUTPUT_DIR, `audio_${timestamp}.mp3`);
 
@@ -43,13 +50,13 @@ class YoutubeService {
 
         try {
             await youtubedl(url, {
-                extractAudio: true, 
+                extractAudio: true,
                 audioFormat: 'mp3',
                 audioQuality: 0,
                 output: outputPath,
                 noCheckCertificates: true,
                 noWarnings: true,
-                addHeader: ['referer:youtube.com', 'user-agent:googlebot']
+                addHeader: ['referer:youtube.com', 'user-agent:googlebot'],
             });
 
             console.log('Download da música concluído!');
@@ -61,19 +68,19 @@ class YoutubeService {
         }
     }
 
-    async recuperarMetaDadosVideo(url) {
+    async recuperarMetaDadosVideo(url: string): Promise<{ titulo: string; autor: string; duracao?: string }> {
         try {
             const metadados = await youtubedl(url, {
                 dumpJson: true,
                 noCheckCertificates: true,
                 noWarnings: true,
-                addHeader: ['refer:youtube.com', 'user-agent:googlebot']
+                addHeader: ['refer:youtube.com', 'user-agent:googlebot'],
             });
 
             return {
                 titulo: metadados.title,
                 autor: metadados.uploader,
-                duracao: metadados.duration_string
+                duracao: metadados.duration_string,
             };
         } catch (error) {
             console.error('Erro ao buscar as informações do link:', error);
@@ -82,6 +89,4 @@ class YoutubeService {
     }
 }
 
-module.exports = new YoutubeService();
-
-// Talvez ter um agente que recebe os nomes, faz a pesquisa da musica, encontra o link, baixa pela baixarVideoEmMp3 e retorna
+export const youtubeService = new YoutubeService();
