@@ -28,6 +28,14 @@ const stmtBuscarPorNumero = db.prepare(`
     SELECT * FROM pessoas WHERE numero = ?
 `);
 
+const stmtBuscarPorNome = db.prepare(`
+    SELECT * FROM pessoas WHERE LOWER(nome) LIKE LOWER(?) ORDER BY nome
+`);
+
+const stmtBuscarPorLid = db.prepare(`
+    SELECT * FROM pessoas WHERE lid = ?
+`);
+
 export function registrarPessoa(dto: RegistrarPessoaDto): void {
     stmtRegistrar.run({
         numero: dto.numero,
@@ -39,4 +47,14 @@ export function registrarPessoa(dto: RegistrarPessoaDto): void {
 
 export function buscarPorNumero(numero: string): Pessoa | null {
     return (stmtBuscarPorNumero.get(numero) as Pessoa | undefined) ?? null;
+}
+
+/** Busca contatos por nome (case-insensitive, parcial). Retorna lista (pode ser ambígua). */
+export function buscarPorNome(nome: string): Pessoa[] {
+    return stmtBuscarPorNome.all(`%${nome.trim()}%`) as Pessoa[];
+}
+
+/** Busca uma pessoa pelo LID (usado quando o mapeamento LID→número não é conhecido). */
+export function buscarPorLid(lid: string): Pessoa | null {
+    return (stmtBuscarPorLid.get(lid) as Pessoa | undefined) ?? null;
 }

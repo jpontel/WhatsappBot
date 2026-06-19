@@ -1,34 +1,22 @@
-import { areJidsSameUser } from '@whiskeysockets/baileys';
 import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
-import { ENV } from '../config/env.js';
 import { resolverNumero, resolverNumeroRemetente } from '../core/identidade.js';
 import { registrarPessoa } from '../repository/pessoa.repository.js';
 
-/** Normaliza o DONO_JID configurado (aceita número puro ou JID completo). */
-function donoJidNormalizado(): string | undefined {
-    const bruto = ENV.DONO_JID?.trim();
-    if (!bruto) return undefined;
-    return bruto.includes('@') ? bruto : `${bruto}@s.whatsapp.net`;
-}
-
 export default {
     name: '/cadastrar',
-    description: 'Cadastra uma pessoa do grupo: /cadastrar <nome> @menção (só o dono)',
+    description: 'Cadastra uma pessoa do grupo: /cadastrar <nome> @menção (só o admin)',
 
     execute: async (dto: ComandoExecutarDto) => {
-        const { sock, msg, usuarioJid, conteudo, ehDono } = dto;
+        const { sock, msg, usuarioJid, conteudo, ehAdmin } = dto;
 
         const reagir = (text: string) => sock.sendMessage(usuarioJid, { react: { text, key: msg.key } });
 
         const numeroRemetente = await resolverNumeroRemetente(sock, msg);
 
-        // Dono = mensagem própria (fromMe) OU remetente que bate com DONO_JID (modo conta separada).
-        const dono = donoJidNormalizado();
-        const ehDonoEfetivo = !!ehDono || (!!dono && areJidsSameUser(numeroRemetente ?? undefined, dono));
-
-        if (!ehDonoEfetivo) {
+        // Admin é identificado por JID (ADMIN_JID) no dispatcher; aqui só checamos o flag.
+        if (!ehAdmin) {
             await reagir('❌');
-            return await sock.sendMessage(usuarioJid, { text: 'Só o dono pode cadastrar gente 😤' });
+            return await sock.sendMessage(usuarioJid, { text: 'Só o admin pode cadastrar gente 😤' });
         }
 
         const mencaoLid = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];

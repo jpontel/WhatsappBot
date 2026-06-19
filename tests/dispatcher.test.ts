@@ -18,6 +18,26 @@ function msgComTexto(remoteJid: string, text: string) {
     } as any;
 }
 
+// Sock com identidade do bot (número 41), p/ exercitar o gatilho por menção.
+function mockSockBot() {
+    return { sendMessage: vi.fn(), user: { id: '5541984598825@s.whatsapp.net' } } as any;
+}
+
+function msgComMencao(remoteJid: string, text: string, mentionedJid: string[], fromMe = false) {
+    return {
+        key: { id: 'm1', remoteJid, fromMe },
+        message: { extendedTextMessage: { text, contextInfo: { mentionedJid } } },
+    } as any;
+}
+
+// Foto com legenda: a menção fica em imageMessage.contextInfo (não em extendedTextMessage).
+function msgFotoComMencao(remoteJid: string, caption: string, mentionedJid: string[], fromMe = false) {
+    return {
+        key: { id: 'm1', remoteJid, fromMe },
+        message: { imageMessage: { caption, contextInfo: { mentionedJid } } },
+    } as any;
+}
+
 describe('enviarMensagem (dispatcher)', () => {
     it('ignora messageDto.type diferente de "notify"', async () => {
         const execute = vi.fn();
@@ -32,17 +52,17 @@ describe('enviarMensagem (dispatcher)', () => {
         expect(execute).not.toHaveBeenCalled();
     });
 
-    it('ignora JID hardcoded 5547992706378', async () => {
+    it('processa mensagens do número do admin (não há mais JID ignorado)', async () => {
         const execute = vi.fn();
         const carregador = carregadorCom([{ name: '/oi', execute }]);
 
         await enviarMensagem(
             mockSock(),
-            { messages: [msgComTexto('5547992706378', '/oi')], type: 'notify' },
+            { messages: [msgComTexto('5547992706378@s.whatsapp.net', '/oi')], type: 'notify' },
             carregador,
         );
 
-        expect(execute).not.toHaveBeenCalled();
+        expect(execute).toHaveBeenCalledOnce();
     });
 
     it('ignora JIDs de newsletter', async () => {
@@ -144,5 +164,75 @@ describe('enviarMensagem (dispatcher)', () => {
         );
 
         expect(execute).toHaveBeenCalledOnce();
+    });
+
+    it('menção ao bot aciona o /p com o texto sem a menção', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSockBot(),
+            { messages: [msgComMencao('123@g.us', '@5541984598825 qual a capital', ['5541984598825@s.whatsapp.net'])], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).toHaveBeenCalledOnce();
+        expect(execute.mock.calls[0][0].conteudo).toBe('qual a capital');
+    });
+
+    it('/p explícito + menção não dispara duas vezes', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSockBot(),
+            { messages: [msgComMencao('123@g.us', '/p oi', ['5541984598825@s.whatsapp.net'])], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).toHaveBeenCalledOnce();
+        expect(execute.mock.calls[0][0].conteudo).toBe('oi');
+    });
+
+    it('menção em mensagem fromMe (eco do bot) não dispara', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSockBot(),
+            { messages: [msgComMencao('123@g.us', '@5541984598825 oi', ['5541984598825@s.whatsapp.net'], true)], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('menção sem texto manda recado amigável e não aciona o /p', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+        const sock = mockSockBot();
+
+        await enviarMensagem(
+            sock,
+            { messages: [msgComMencao('123@g.us', '@5541984598825', ['5541984598825@s.whatsapp.net'])], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).not.toHaveBeenCalled();
+        expect(sock.sendMessage).toHaveBeenCalled();
+    });
+
+    it('menção na legenda de uma FOTO aciona o /p', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSockBot(),
+            { messages: [msgFotoComMencao('123@g.us', '@5541984598825 quem é essa pessoa', ['5541984598825@s.whatsapp.net'])], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).toHaveBeenCalledOnce();
+        expect(execute.mock.calls[0][0].conteudo).toBe('quem é essa pessoa');
     });
 });

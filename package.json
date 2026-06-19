@@ -5,6 +5,7 @@
   "main": "./src/index.ts",
   "scripts": {
     "start": "npx tsx watch src/index.ts",
+    "start:prod": "tsx src/index.ts",
     "start:debug": "npx tsx --inspect src/index.ts",
     "inspect:mcp": "npx @modelcontextprotocol/inspector",
     "test": "vitest run",
