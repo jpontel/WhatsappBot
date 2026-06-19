@@ -8,7 +8,7 @@ const ENDPOINTS = {
 }
 
 class HevyService {
-    async recuperarHistoricoExercicios(recuperarHistoricoExerciciosDto) {
+    async recuperarHistoricoExercicios(recuperarHistoricoExerciciosDto: any) {
 
         if(!recuperarHistoricoExerciciosDto.exerciseTemplateId) 
             throw new Error("Precisa de um template");

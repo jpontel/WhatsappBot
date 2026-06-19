@@ -95,7 +95,7 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
             chatId: d.usuarioJid,
             mensagem: 'capital da australia',
             midia: null,
-            remetente: { numero: '5511@s.whatsapp.net', nome: null, registrado: false, ehDono: false },
+            remetente: { numero: '5511@s.whatsapp.net', nome: null, registrado: false, ehAdmin: false },
         });
         expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: 'ok' });
         expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '💅', key: d.msg.key } });
