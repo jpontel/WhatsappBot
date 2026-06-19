@@ -53,23 +53,33 @@ O reload acontece **a cada mensagem recebida** (`carregarComandos()` é chamado 
 
 `better-sqlite3` apontando para `whatsapp-bot.db` (commitado no repo). Duas tabelas são criadas automaticamente no import:
 
-- `mensagens` — histórico de chat do Gemini por `chat_id`, com `role` ∈ `{user, model}`. `GoogleCloudService._recuperarHistorico` pega os últimos 10 por timestamp e os passa para `ai.chats.create({ history })`, de modo que `/perguntar` tenha estado por conversa do WhatsApp.
+- `mensagens` — legado. Antes guardava o histórico de chat do `/p` por `chat_id`. Hoje o `/p` é só uma ponte HTTP para o projeto `agente/`, que gerencia sessão própria (ADK `DatabaseSessionService` em `agente.db`). A tabela continua sendo criada mas não é mais lida/escrita pelos comandos ativos.
 - `agendamento` — mensagens de saída agendadas (expressão cron + status). O código do repositório existe, mas ainda não está ligado ao runtime.
 
 ### Serviços (`src/services/`)
 
 Cada um é uma classe instanciada por chamada de comando (sem container de DI). Os mais notáveis:
-- `GoogleCloudService` — geração de texto + imagem do Gemini. `gerarConteudo` ramifica conforme `chatId` for fornecido: com `chatId`, persiste turnos em `mensagens`; sem, é uma chamada one-shot. As instruções de sistema têm persona e dicionário de gírias hardcoded em português — preserve-os ao editar.
+- `GoogleCloudService` — geração de texto + imagem do Gemini. **Não é mais usado pelo `/p`** (que virou ponte para o `agente/`); fica disponível para outros comandos que ainda precisem chamar Gemini direto. A persona/dicionário de gírias hardcoded aqui foi migrada para `agente/src/agente/agent/instruction.py` — se editar a persona, edite no agente.
 - `LastfmService` — usado pelo `/semaninha` para montar a colagem 5×5 de álbuns da semana. Faz fallback para a Search API do iTunes quando o Last.fm retorna a capa placeholder padrão (identificada pelo hash `2a96cbd8b46e442fc41c2b86b821562f`).
 - `whatsappService` (`src/services/whatsapp.service.ts`) — singleton que guarda o `WASocket` ativo, pensado para que o servidor MCP alcance a conexão viva. Atualmente `inicializarInstancia` **não é chamado** em `index.ts` (a linha está comentada), então a tool do MCP lançaria "Whatsapp Socket não inicializado" se fosse invocada.
 
 ### Servidor MCP (`src/mcp/mcp.server.ts`)
 
-Esqueleto com uma única tool (`enviar_sticker`) que acessa o `whatsappService` para mandar stickers. A chamada `app.listen(...)` está comentada, então o servidor não sobe de fato no `main()` atual. Para religar, é preciso (a) descomentar `startMcpServer`, (b) chamar `whatsappService.inicializarInstancia(sock)` assim que a conexão abrir, e (c) importar/invocar o servidor a partir de `index.ts`.
+Sobe no boot (`startMcpServer()` chamado em `index.ts:160`) em `http://localhost:${MCP_PORT}/mcp` (default 3001), modo `StreamableHTTPServerTransport` **stateless** — 1 server novo por request HTTP, sem sessão persistente. `whatsappService.inicializarInstancia(sock)` é chamado em `connection === 'open'` (`index.ts:72`).
+
+Tools registradas hoje (todas usam `whatsappService.recuperarInstancia()` para acessar o socket vivo):
+- `enviar_texto(jid, texto)` — mensagem de texto.
+- `enviar_imagem(jid, mediaBase64, legenda?)` — imagem PNG/JPG.
+- `enviar_sticker(jid, mediaBase64)` — converte PNG/JPG em figurinha via `wa-sticker-formatter`.
+- `reagir(jid, msgKey, emoji)` — reação na mensagem original; `msgKey` é o objeto `proto.IMessageKey` (id/remoteJid/fromMe/participant).
+
+Para adicionar uma tool nova, replicar o padrão (`server.registerTool(nome, { description, inputSchema: zodShape }, handler)`) — `handler` deve devolver `{ content: [...] }` em sucesso e `{ isError: true, content: [...] }` em falha. **Não** expor tool genérica de "executar comando" — verbos de domínio dão schemas mais claros para o LLM consumidor.
+
+O consumidor atual é o projeto `agente/` (na raiz do repo, fora deste diretório).
 
 ### Ambiente
 
-O `.env` é carregado por `src/config/env.ts` — importe esse arquivo primeiro (e apenas via `import './config/env.js'` no topo de `index.ts`) para que `process.env` esteja populado antes que qualquer construtor de serviço o leia. Constantes centralizadas ficam no objeto `ENV` exportado; prefira adicionar variáveis novas lá em vez de ler `process.env` direto. Chaves em uso: `TELEFONE_CELULAR`, `GEMINI_API_KEY`, `LASTFM_API_KEY`/`LASTFM_API_URL`/`LASTFM_SHARED_SECRET`, `CRAFT_API_URL`, `HEAVY_API_URL`/`HEAVY_API_KEY`, `IS_DESENV`, `CHROME_FOLDER_MACOS`/`CHROME_FOLDER_LINUX`.
+O `.env` é carregado por `src/config/env.ts` — importe esse arquivo primeiro (e apenas via `import './config/env.js'` no topo de `index.ts`) para que `process.env` esteja populado antes que qualquer construtor de serviço o leia. Constantes centralizadas ficam no objeto `ENV` exportado; prefira adicionar variáveis novas lá em vez de ler `process.env` direto. Chaves em uso: `TELEFONE_CELULAR`, `GEMINI_API_KEY`, `LASTFM_API_KEY`/`LASTFM_API_URL`/`LASTFM_SHARED_SECRET`, `CRAFT_API_URL`, `HEAVY_API_URL`/`HEAVY_API_KEY`, `IS_DESENV`, `CHROME_FOLDER_MACOS`/`CHROME_FOLDER_LINUX`, `MCP_PORT` (default 3001), `AGENT_URL` (default `http://localhost:8000` — URL base do projeto `agente/`, usada pelo `/p`).
 
 ## Convenções
 

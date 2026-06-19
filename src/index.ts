@@ -1,41 +1,53 @@
 import './config/env.js';
 
-import type { WASocket, WAMessage, MessageUpsertType } from '@whiskeysockets/baileys';
-
-import makeWASocket, { 
-    useMultiFileAuthState, 
-    DisconnectReason, 
+import makeWASocket, {
+    useMultiFileAuthState,
+    DisconnectReason,
     Browsers,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    type WASocket
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
 import NodeCache from 'node-cache';
 import pino from 'pino';
 
-import carregarComandos from './core/comandos.js';
-import type { ComandoExecutarDto } from './dto/comandos.dto.js';
+import { enviarMensagem } from './core/dispatcher.js';
 import { whatsappService } from './services/whatsapp.service.js';
 import { startMcpServer } from './mcp/mcp.server.js';
+import { schedulerService } from './services/scheduler.service.js';
+import { registrarDesligamentoGracioso } from './core/desligamento.js';
 
 const cache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
+
+// main() é chamado recursivamente nas reconexões, criando um socket novo a cada vez.
+// Guardamos a referência viva aqui para que o desligamento gracioso (SIGTERM/SIGINT)
+// sempre encerre o socket ATUAL — e não uma referência antiga já descartada.
+let socketAtivo: WASocket | null = null;
+
+// Mantém a última função saveCreds pendente para garantir um flush final no shutdown
+// (evita ler credenciais "stale" no próximo boot — causa do 401 loggedOut em recreate).
+let salvarCredenciais: (() => Promise<void>) | null = null;
 
 async function main() {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`Versão do whatsapp: v${version.join('.')}, ehMaisRecente: ${isLatest}`);
 
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    salvarCredenciais = saveCreds;
 
     const sock = makeWASocket({
         version,
         auth: state,
         mobile: false,
         logger: pino({ level: 'error' }),
-        printQRInTerminal: false, 
-        browser: Browsers.macOS('Chrome'), 
+        printQRInTerminal: false,
+        browser: Browsers.macOS('Chrome'),
         markOnlineOnConnect: true,
         cachedGroupMetadata: async (jid) => cache.get(jid)
     });
+
+    socketAtivo = sock;
 
     let codigoEnviado = false;
 
@@ -94,69 +106,33 @@ async function main() {
     });
 
     sock.ev.on('messages.upsert', async(messageDto) => {
-        enviarMensagem(sock, messageDto)
-    });
-}
-
-export async function enviarMensagem(
-    sock: WASocket, 
-    messageDto: {
-        messages: WAMessage[];
-        type: MessageUpsertType;
-        requestId?: string;
-    } 
-) {
-    try {
-
-        if(messageDto.type !== 'notify') return;
-
-        const comandos = await carregarComandos();
-
-        for(const msg of messageDto.messages) {
-
-            if(
-                msg.key.remoteJid === 'REMOVIDO_TEL'
-                || msg.key.remoteJid?.endsWith('@newsletter')
-            ) {
-                return;
-            } 
-
-            const jid = msg.key.remoteJid!; 
-
-            const text = msg.message?.conversation || 
-                        msg.message?.extendedTextMessage?.text || 
-                        msg.message?.imageMessage?.caption || 
-                        msg?.message?.videoMessage?.caption;
-
-
-            if(text) {
-                console.log(`📩 Mensagem de ${jid}: ${text}`);
-
-                const comando = text.split(' ')[0]?.toLowerCase();
-                const instrucao = text.slice(comando?.length).trim();
-
-                const comandoExecutarDto: ComandoExecutarDto = {
-                    sock: sock,
-                    conteudo: instrucao,
-                    usuarioJid: jid,
-                    msg: msg
-                };
-
-                if(comandos.has(comando)) {
-                    await comandos.get(comando).execute(comandoExecutarDto);
-                }
-
-            }
-
+        try {
+            await enviarMensagem(sock, messageDto);
+        } catch (error) {
+            console.error("Erro no dispatcher:", error);
         }
-
-    } catch (error) {
-        throw error;
-    }
+    });
 }
 
 // MCP Server sobe uma única vez no boot — main() é chamado recursivamente em reconexões,
 // então iniciar o express lá dentro causaria EADDRINUSE.
 startMcpServer();
+
+// Carrega os lembretes agendados e registra as tarefas (node-cron/setTimeout).
+// O disparo usa whatsappService.recuperarInstancia() no momento do fire, quando o
+// socket já está 'open'.
+schedulerService.inicializar();
+
+// Desligamento gracioso: quando o Docker manda SIGTERM (recreate/stop) ou o usuário
+// dá Ctrl+C (SIGINT), encerramos o socket de forma limpa e damos um flush final nas
+// credenciais. Sem isso, o processo morria no meio de um avanço de chave/ratchet e o
+// próximo boot lia credenciais inconsistentes -> WhatsApp respondia 401 loggedOut.
+//
+// IMPORTANTE: usamos sock.end() (fecha o ws e preserva a sessão), NUNCA sock.logout()
+// (logout remove o device no servidor do WhatsApp e apagaria a sessão).
+registrarDesligamentoGracioso({
+    obterSocket: () => socketAtivo,
+    obterSalvarCredenciais: () => salvarCredenciais
+});
 
 main();

@@ -5,4 +5,8 @@ export interface ComandoExecutarDto {
     usuarioJid: string;
     conteudo: string;
     msg: WAMessage;
+    /** JID bruto de quem enviou (participant em grupo, remoteJid em DM). */
+    remetenteJid?: string | undefined;
+    /** true quando a mensagem partiu da própria conta do admin (fromMe). */
+    ehAdmin?: boolean | undefined;
 }

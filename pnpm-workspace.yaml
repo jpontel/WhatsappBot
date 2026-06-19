@@ -1,0 +1,15 @@
+# Dependências cujos scripts de build/postinstall o pnpm está autorizado a rodar
+# na instalação. Sem isto, módulos nativos (sharp, canvas, better-sqlite3) não
+# compilam seu binário .node e quebram em runtime ("Cannot find module .../Release/*.node").
+onlyBuiltDependencies:
+  - '@anthropic-ai/claude-code'
+  - '@google/genai'
+  - '@whiskeysockets/baileys'
+  - baileys
+  - better-sqlite3
+  - canvas
+  - esbuild
+  - protobufjs
+  - puppeteer
+  - sharp
+  - youtube-dl-exec
