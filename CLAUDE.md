@@ -10,11 +10,11 @@ Este diretório agrupa dois projetos independentes que cooperam em tempo de exec
 
 ```
 bot/
-├── whatsapp-bot/   # client WhatsApp (Baileys, Node/TS) — repo Git próprio
+├── whatsapp-bot/   # client WhatsApp (Baileys, Node/TS)
 └── agente/         # agente ADK (Python/FastAPI) que orquestra o bot via MCP
 ```
 
-A raiz **não é** um repositório Git. O `.git` vive dentro de `whatsapp-bot/`. `agente/` é um projeto Python separado ao lado — não há lockfile/workspace compartilhado na raiz.
+A raiz **é** um repositório Git (monorepo): o `.git` fica em `bot/` e versiona tanto `whatsapp-bot/` quanto `agente/` (branch principal: `main`). Eles continuam sendo dois projetos independentes em runtime — sem lockfile/workspace compartilhado, só dividem o mesmo histórico Git. O deploy em produção continua por `rsync` (não por `git` no servidor).
 
 ### `whatsapp-bot/` — client de interface
 

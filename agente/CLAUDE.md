@@ -8,12 +8,28 @@ Projeto Python que hospeda um agente Google ADK por trás de uma API FastAPI. Id
 
 ```bash
 poetry install                                           # 1ª vez (resolve deps, cria .venv)
-poetry run uvicorn agente.main:app --reload --port 8000  # rodar em dev
+poetry run uvicorn main:app --app-dir src --reload --port 8000  # rodar em dev
 poetry run pytest                                        # testes (quando existirem)
 poetry run ruff check src tests                          # lint
 ```
 
 Não há etapa de build — `uvicorn` carrega o módulo direto.
+
+## Layout do código (`src/`)
+
+Pacote **plano** sob `src/` (carregado via `PYTHONPATH=/app/src` no Docker; `--app-dir src` em dev). NÃO há mais o wrapper `agente` — os imports são diretos (`from config import ...`, `from client.root_agent import ...`, `from tools.tools import ...`).
+
+```
+src/
+├── main.py     # app FastAPI (entry: main:app)
+├── config.py   # Settings (pydantic-settings)
+├── api/        # camada HTTP — chat.py, health.py
+├── schemas/    # contratos Pydantic — chat.py
+├── client/     # orquestração ADK — root_agent, instruction, fallback_model, historico, session
+├── tools/      # ferramentas chamáveis pelo LLM — tools.py
+├── repo/       # repositórios vetoriais — memoria_repo, rosto_repo
+└── shared/     # infra compartilhada — mcp_client, request_context
+```
 
 ## Pré-requisitos de runtime
 
@@ -25,7 +41,7 @@ Não há etapa de build — `uvicorn` carrega o módulo direto.
 
 ### Fluxo de uma request `/chat`
 
-`POST /chat` (`src/agente/api/chat.py`) recebe `{ chatId, mensagem, msgKey, midia? }`. Para cada turno:
+`POST /chat` (`src/api/chat.py`) recebe `{ chatId, mensagem, msgKey, midia? }`. Para cada turno:
 
 1. `_garantir_sessao(chatId)` cria a sessão no `DatabaseSessionService` (sqlite em `agente.db`) se ainda não existir. `chatId == user_id == session_id` (= JID do WhatsApp).
 2. `_montar_conteudo` constrói um `types.Content` com um bloco textual `[contexto-sistema] usuario_jid: ... msg_key: {...}` + `[mensagem-usuario] ...`. Se houver mídia, vai como `inline_data` na mesma `Content`.
@@ -34,19 +50,19 @@ Não há etapa de build — `uvicorn` carrega o módulo direto.
    - `event.is_final_response()` → captura o texto final do LLM.
 4. Resposta: `{ texto, tools_acionadas }`. O **bot** é quem envia esse texto ao WhatsApp; o agente nunca chama `enviar_texto` para a resposta final (ver instruction).
 
-### Root agent (`src/agente/agent/`)
+### Agente (`src/client/` + `src/tools/`)
 
-- `root_agent.py` instancia o `LlmAgent` único (`name="clarice"`, modelo lido de `settings.gemini_model`) com `tools=[mcp_toolset, gerar_imagem]`. Também expõe o `runner` singleton.
-- `instruction.py` carrega a persona — migrada literalmente do `whatsapp-bot/src/services/google-cloud.service.ts`. **Persona vive aqui agora**, não no bot. Edite aqui se mudar o tom/dicionário de gírias.
-- `tools.py` contém `gerar_imagem(prompt)` (chamada direta ao Gemini, retorna `{ base64, mimetype }`). Tools que precisam falar com o WhatsApp (sticker, imagem, texto, reagir) **não** moram aqui — moram no MCP do bot e chegam via `MCPToolset`.
-- `session.py` instancia `DatabaseSessionService(db_url=settings.database_url)` e exporta o `APP_NAME` usado pelo runner.
+- `client/root_agent.py` instancia o `LlmAgent` único (`name="clarice"`, modelo lido de `settings.gemini_model`) e expõe o `runner` singleton.
+- `client/instruction.py` carrega a persona — migrada literalmente do `whatsapp-bot/src/services/google-cloud.service.ts`. **Persona vive aqui agora**, não no bot. Edite aqui se mudar o tom/dicionário de gírias.
+- `tools/tools.py` contém as ferramentas (geração de imagem/áudio, busca web/artigos, memória, etc.). Tools que precisam falar com o WhatsApp (sticker, imagem, texto, reagir) **não** moram aqui — moram no MCP do bot e chegam via `MCPToolset`.
+- `client/session.py` instancia `DatabaseSessionService(db_url=settings.database_url)` e exporta o `APP_NAME` usado pelo runner.
 
 ### Por que duas categorias de tool?
 
 - **Python tools (in-process)** — coisas que o agente computa/gera localmente. Ex.: `gerar_imagem` chama Gemini, devolve bytes; não toca no WhatsApp.
 - **MCP tools (no bot)** — efeitos colaterais no WhatsApp. Ex.: depois de gerar bytes com `gerar_imagem`, o agente chama MCP `enviar_imagem` para entregar. O MCP é a única superfície que conhece o socket Baileys.
 
-Não tente colocar lógica do WhatsApp dentro de `agente/tools.py`. E não tente colocar geração de IA no MCP do bot. A divisão é proposital.
+Não tente colocar lógica do WhatsApp dentro de `tools/tools.py`. E não tente colocar geração de IA no MCP do bot. A divisão é proposital.
 
 ### Contexto por turno: `usuario_jid` e `msg_key`
 
@@ -58,10 +74,10 @@ Se você adicionar uma tool MCP nova que precise de mais metadados (ex.: timesta
 
 | O que você quer | Onde mexer |
 |---|---|
-| Mudar persona / humor / gírias | `agente/src/agente/agent/instruction.py` |
-| Tool que apenas computa (sem mandar pra WhatsApp) | `agente/src/agente/agent/tools.py` + registrar em `root_agent.py` |
+| Mudar persona / humor / gírias | `agente/src/client/instruction.py` |
+| Tool que apenas computa (sem mandar pra WhatsApp) | `agente/src/tools/tools.py` + registrar em `client/root_agent.py` |
 | Tool que age no WhatsApp | `whatsapp-bot/src/mcp/mcp.server.ts` (do outro lado); o agente pega automaticamente via `MCPToolset` |
-| Novo campo no contrato HTTP | `agente/src/agente/schemas/chat.py` + `api/chat.py` |
+| Novo campo no contrato HTTP | `agente/src/schemas/chat.py` + `api/chat.py` |
 | Trocar modelo Gemini | `.env`: `GEMINI_MODEL` / `GEMINI_IMAGE_MODEL` |
 
 ## [SEGURANÇA]: Verificação de impacto em tokens (OBRIGATÓRIA)
@@ -76,7 +92,7 @@ Antes de concluir qualquer mudança, responda explicitamente:
 4. **Mediu?** Quando plausível, confira o `prompt_token_count` real (vem no `usage_metadata` dos eventos no `agente.db`) antes/depois. Caractere/4 só serve de estimativa grosseira e superestima.
 
 Regras fixas que saíram desse incidente:
-- **Histórico de sessão tem janela** — `settings.historico_max_itens` (cortado em `agent/historico.py` via `before_model_callback`). NUNCA reenviar a sessão inteira. Ao mexer no fluxo do `runner`/sessão, confirmar que a janela continua ativa.
+- **Histórico de sessão tem janela** — `settings.historico_max_itens` (cortado em `client/historico.py` via `before_model_callback`). NUNCA reenviar a sessão inteira. Ao mexer no fluxo do `runner`/sessão, confirmar que a janela continua ativa.
 - **Respostas de tool grandes** (busca web, artigos) são o maior peso por-turno depois do histórico. Não reinjetar conteúdo volumoso de tool repetidamente sem truncar.
 - **Métrica certa é quantidade, não tempo** — tempo não limita volume (um surto de mensagens estoura o contexto mesmo sendo "recente").
 
