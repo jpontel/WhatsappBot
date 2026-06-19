@@ -1,0 +1,40 @@
+# Orquestra os dois serviços em produção (Linode).
+# bot (Baileys + MCP 3001) <-> agente (FastAPI + ADK 8000), conversando pela rede interna do compose.
+services:
+  whatsapp-bot:
+    build: ./whatsapp-bot
+    container_name: bot-baileys
+    restart: always
+    env_file:
+      - ./whatsapp-bot/.env
+    environment:
+      # sobrepõe os defaults do .env para a rede interna do compose
+      - AGENT_URL=http://agente:8000
+      - MCP_PORT=3001
+    volumes:
+      # sessão do WhatsApp (preservada do deploy antigo — não reparear)
+      - ./whatsapp-bot/auth_info_baileys:/app/auth_info_baileys
+      # SQLite do bot (tabela pessoas) em volume nomeado
+      - bot_db:/app/data
+    depends_on:
+      - agente
+    tty: true
+    stdin_open: true
+
+  agente:
+    build: ./agente
+    container_name: agente-adk
+    restart: always
+    env_file:
+      - ./agente/.env
+    environment:
+      # sobrepõe os defaults do .env para a rede interna do compose
+      - MCP_URL=http://whatsapp-bot:3001/mcp
+      - DATABASE_URL=sqlite+aiosqlite:///./data/agente.db
+    volumes:
+      # SQLite de sessões do ADK em volume nomeado
+      - agente_db:/app/data
+
+volumes:
+  bot_db:
+  agente_db:
