@@ -10,7 +10,13 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-google-adk = ">=1.0,<2.0"
+# No ADK 2.x, suporte a MCP virou extra (`mcp`) — sem ele o import de
+# StreamableHTTPConnectionParams quebra (`No module named 'mcp'`). SQLAlchemy
+# também saiu do core (era core no 1.x) e o DatabaseSessionService precisa dela;
+# adicionamos `sqlalchemy` direto em vez do extra `db` (que arrastaria o dialeto
+# pesado do Cloud Spanner, sem uso aqui — nosso backend é SQLite).
+google-adk = { version = ">=2.3,<3.0", extras = ["mcp"] }
+sqlalchemy = ">=2,<3"
 fastapi = ">=0.118,<1.0"
 uvicorn = { extras = ["standard"], version = ">=0.32,<1.0" }
 pydantic = ">=2.9,<3.0"
@@ -21,7 +27,9 @@ sqlite-vec = "^0.1.9"
 # build (precisa de build-essential no Dockerfile); onnxruntime/opencv vêm como
 # wheels. numpy fixado em <2 por compatibilidade com o insightface 0.7.x.
 insightface = "^0.7.3"
-onnxruntime = "^1.19"
+# Limitado a <1.24: 1.24+ não publica wheel p/ macOS-arm64+py311 (quebra o
+# `poetry install` de dev). 1.23.2 tem wheel p/ macOS e linux — instala nos dois.
+onnxruntime = ">=1.19,<1.24"
 opencv-python-headless = "^4.10"
 numpy = ">=1.26,<2.0"
 
