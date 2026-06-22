@@ -2,6 +2,8 @@ import base64
 import io
 import json
 import re
+import threading
+import time
 import wave
 
 import httpx
@@ -14,6 +16,79 @@ from shared.mcp_client import chamar_mcp, chamar_mcp_texto
 from config import settings
 
 
+# --- Rate limit de GERAÇÃO de imagens por usuário ----------------------------
+# Cada chamada à API de imagem do Gemini custa; este teto evita que um usuário
+# empilhe gerações num curto intervalo (abuso/custo). Janela DESLIZANTE em
+# memória: guarda os timestamps (monotônicos) das gerações de cada número e
+# poda os que já saíram da janela. Reiniciar o processo zera a contagem — ok
+# para um limitador de custo. Vale só para GERAÇÃO/EDIÇÃO com IA; busca de
+# imagem na web e áudio (TTS) NÃO passam por aqui. OBS: o contador é POR
+# PROCESSO — com vários workers uvicorn, o teto vale por worker.
+_geracao_lock = threading.Lock()
+_geracao_hist: dict[str, list[float]] = {}
+
+# Mesmo esquema para a GERAÇÃO de música (Lyria). Contador SEPARADO do de imagem:
+# os baldes (`_hist`) e os tetos (`settings`) são independentes, então gerar
+# música não consome o saldo de imagem e vice-versa.
+_musica_lock = threading.Lock()
+_musica_hist: dict[str, list[float]] = {}
+
+
+def _checar_limite(
+    hist: dict[str, list[float]],
+    lock: threading.Lock,
+    teto: int,
+    janela: int,
+    rotulo: str,
+) -> str | None:
+    """Teto por usuário em janela DESLIZANTE, genérico (imagem/música/etc.).
+
+    Lê o solicitante da identidade CONFIÁVEL do turno (`request_context`, não de
+    argumento do LLM). Se ainda há saldo na janela, REGISTRA esta chamada e
+    devolve None (pode prosseguir). Se já estourou `teto` dentro de `janela`
+    segundos, devolve a mensagem de erro (sem registrar) — o chamador aborta
+    ANTES de tocar na API. `rotulo` é o substantivo no plural da mensagem
+    (ex.: "imagens", "músicas").
+    """
+    numero, _eh_admin, _registrado = request_context.atual()
+    chave = (numero or "").split("@", 1)[0].strip() or "?"
+    agora = time.monotonic()
+    with lock:
+        recentes = [t for t in hist.get(chave, []) if agora - t < janela]
+        if len(recentes) >= teto:
+            hist[chave] = recentes  # persiste a poda mesmo ao recusar
+            espera = int(janela - (agora - recentes[0])) + 1 if recentes else janela
+            return (
+                f"Limite de {teto} {rotulo} a cada {janela // 60} min atingido — "
+                f"espera ~{espera}s e tenta de novo."
+            )
+        recentes.append(agora)
+        hist[chave] = recentes
+        return None
+
+
+def _checar_limite_geracao() -> str | None:
+    """Aplica o teto de gerações de IMAGEM do usuário (ver `_checar_limite`)."""
+    return _checar_limite(
+        _geracao_hist,
+        _geracao_lock,
+        settings.imagem_rate_max,
+        settings.imagem_rate_janela_seg,
+        "imagens",
+    )
+
+
+def _checar_limite_musica() -> str | None:
+    """Aplica o teto de gerações de MÚSICA do usuário (ver `_checar_limite`)."""
+    return _checar_limite(
+        _musica_hist,
+        _musica_lock,
+        settings.musica_rate_max,
+        settings.musica_rate_janela_seg,
+        "músicas",
+    )
+
+
 async def gerar_imagem(prompt: str) -> dict:
     """Gera uma imagem a partir de um prompt em texto usando o Gemini.
 
@@ -24,6 +99,10 @@ async def gerar_imagem(prompt: str) -> dict:
         Dicionário com `base64` (str, imagem PNG em base64) e `mimetype` (str, ex: 'image/png').
         Em caso de bloqueio do filtro de segurança, retorna `{"erro": "..."}`.
     """
+    limite = _checar_limite_geracao()
+    if limite:
+        return {"erro": limite}
+
     client = genai.Client(api_key=settings.gemini_api_key)
 
     response = await client.aio.models.generate_content(
@@ -66,6 +145,10 @@ async def editar_imagem(prompt: str, imagem: dict) -> dict:
         {"base64", "mimetype"} com a imagem editada, ou {"erro": "..."} se o
         filtro de segurança bloquear (comum em troca de rosto de pessoa real).
     """
+    limite = _checar_limite_geracao()
+    if limite:
+        return {"erro": limite}
+
     client = genai.Client(api_key=settings.gemini_api_key)
     raw = base64.b64decode(imagem["base64"])
 
@@ -118,6 +201,9 @@ async def gerar_imagem_com_referencias(prompt: str, imagens: list[dict]) -> dict
     """
     if not imagens:
         return {"erro": "Sem imagens de referência para gerar."}
+    limite = _checar_limite_geracao()
+    if limite:
+        return {"erro": limite}
     client = genai.Client(api_key=settings.gemini_api_key)
 
     partes: list[types.Part] = [
@@ -252,6 +338,46 @@ async def gerar_audio(texto: str, voz: str = "") -> dict:
         "base64": base64.b64encode(wav).decode("utf-8"),
         "mimetype": "audio/wav",
     }
+
+
+async def gerar_musica(prompt: str) -> dict:
+    """Gera uma música (clipe de ~30s) a partir de um prompt usando o Lyria 3.
+
+    Diferente do TTS (`gerar_audio`, que LÊ um texto), aqui o modelo COMPÕE uma
+    faixa musical. Usa o `lyria-3-clip-preview` (sempre ~30s) pela Interactions API
+    do genai. O gate de uso é checado ANTES de tocar na API (anti-abuso/custo).
+
+    Args:
+        prompt: descrição da música — estilo/clima/instrumentos e, se for cantada,
+            sobre o que cantar (de preferência em português).
+
+    Returns:
+        `{"base64": <mp3>, "mimetype": "audio/mpeg"}` ou `{"erro": "..."}` (limite
+        de uso atingido, cota/erro da API, ou resposta sem áudio).
+    """
+    limite = _checar_limite_musica()
+    if limite:
+        return {"erro": limite}
+
+    client = genai.Client(api_key=settings.gemini_api_key)
+
+    # Interactions API (genai >= 2.x): o schema novo ("steps") é o default. O
+    # `output_audio` é o atalho para o último bloco de áudio gerado — `data` em
+    # base64 (MP3 do Lyria) e `mime_type`. (No genai 1.x esse caminho dava HTTP 400:
+    # schema legacy desligado em mai/2026 — por isso o ADK foi para 2.x.)
+    try:
+        interaction = await client.aio.interactions.create(
+            model=settings.gemini_music_model,
+            input=prompt,
+        )
+    except Exception as exc:  # noqa: BLE001 - cota/erro de API: degrada p/ texto
+        return {"erro": f"Falha ao gerar música: {exc}"}
+
+    audio = interaction.output_audio
+    if audio is None or not audio.data:
+        return {"erro": "Falha ao gerar música: a API não devolveu áudio."}
+
+    return {"base64": audio.data, "mimetype": audio.mime_type or "audio/mpeg"}
 
 
 async def buscar_web(query: str) -> dict:
@@ -552,7 +678,7 @@ async def enviar_sticker_gerado(prompt: str, jid: str) -> dict:
     CRIA uma imagem com IA e a envia como FIGURINHA (sticker) no WhatsApp.
     Passe `jid` = `usuario_jid` do contexto.
     """
-    return await gerar_e_enviar_sticker(prompt, jid);
+    return await gerar_e_enviar_sticker(prompt, jid)
 
 
 async def buscar_e_enviar_sticker(query: str, jid: str) -> dict:
@@ -602,6 +728,19 @@ async def gerar_e_enviar_audio(texto: str, jid: str, voz: str = "") -> dict:
     em UMA frase curta, sem repetir o conteúdo em texto.
     """
     return await _entregar(gerar_audio(texto, voz), "enviar_audio", jid)
+
+
+async def gerar_e_enviar_musica(prompt: str, jid: str) -> dict:
+    """CRIA uma MÚSICA com IA (Lyria, clipe de ~30s) e a ENVIA no WhatsApp.
+
+    Use quando pedirem para CANTAR ou fazer/compor uma música ("canta...", "faz
+    uma música sobre...", "cria uma música"). `prompt` = a descrição da música
+    (estilo/clima/instrumentos e, se cantada, sobre o que cantar) já na sua
+    persona; `jid` = `usuario_jid` do contexto. Não retorna o áudio (já é enviado
+    como nota de voz) — depois deixe a RESPOSTA FINAL VAZIA. Em caso de limite de
+    uso ou falha, devolve `{"erro": ...}`.
+    """
+    return await _entregar(gerar_musica(prompt), "enviar_audio", jid)
 
 
 # --- Memória de longo prazo por usuário --------------------------------------

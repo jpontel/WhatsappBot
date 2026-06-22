@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # uma das vozes prebuilt do Gemini (ex.: Kore, Puck, Aoede, Charon).
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_tts_voz: str = "Kore"
+    # Geração de MÚSICA (Lyria 3). O `clip` gera clipes de ~30s (versão limitada);
+    # o `pro` faria músicas longas (não usado, mais caro). Devolve MP3 base64.
+    gemini_music_model: str = "lyria-3-clip-preview"
     # Modelos de fallback (em ordem) quando o primário falha com 429/503. NÃO
     # incluir gemini-3-flash-preview: ele é +67% input / +20% output que o
     # gemini-2.5-flash primário — escalar pra ele no overload encarecia em
@@ -40,6 +43,8 @@ class Settings(BaseSettings):
         "fingindo paciência com a pergunta",
         "deboche carinhoso",
         "frieza cortante",
+        "malícia de duplo sentido",
+        "provocação travessa/flerte zoeiro",
     ]
 
     tavily_api_key: str
@@ -87,6 +92,19 @@ class Settings(BaseSettings):
     rosto_max_faces_por_turno: int = 3      # teto de rostos reconhecidos por imagem
     rosto_max_por_pessoa: int = 5           # teto de vetores (ângulos) por pessoa
     rosto_gen_max_pessoas: int = 4          # teto de pessoas/refs por geração de imagem
+
+    # Rate limit de GERAÇÃO de imagens por usuário (anti-abuso/custo): no máximo
+    # `imagem_rate_max` gerações dentro de uma janela DESLIZANTE de
+    # `imagem_rate_janela_seg` segundos. Conta só geração/edição com IA (Gemini);
+    # busca de imagem na web e áudio (TTS) não entram. Ver `_checar_limite_geracao`.
+    imagem_rate_max: int = 10               # máx. de gerações na janela
+    imagem_rate_janela_seg: int = 300       # janela em segundos (5 min)
+
+    # Rate limit de GERAÇÃO de música (Lyria) por usuário — contador INDEPENDENTE
+    # do de imagem (gerar música não consome o teto de imagem e vice-versa). Mesma
+    # mecânica de janela deslizante. Ver `_checar_limite_musica`.
+    musica_rate_max: int = 5                # máx. de músicas na janela
+    musica_rate_janela_seg: int = 300       # janela em segundos (5 min)
 
     host: str = "0.0.0.0"
     port: int = 8000
