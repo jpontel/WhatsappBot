@@ -11,6 +11,7 @@ from google.genai import types
 
 from repo import memoria_repo, rosto_repo
 from shared import request_context
+from client import roteador
 from client.root_agent import runner
 from client.session import APP_NAME, session_service
 from config import settings
@@ -179,6 +180,7 @@ async def _reconhecer_rosto(req: ChatRequest) -> str:
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
+    rota: str | None = None
     try:
         # Serializa por chatId: uma requisição por sessão de cada vez.
         async with _lock_da_sessao(req.chatId):
@@ -209,6 +211,24 @@ async def chat(req: ChatRequest) -> ChatResponse:
             if req.midia and (req.midia.mimetype or "").startswith("image/"):
                 midia_turno = {"base64": req.midia.base64, "mimetype": req.midia.mimetype}
             token_midia = request_context.definir_midia(midia_turno)
+
+            # Roteador determinístico v0: decide a rota pelos sinais do turno e
+            # restringe as tools expostas ao LLM (o filtro roda no
+            # before_model_callback). None = fallback (todas as tools).
+            if settings.roteador_ativo:
+                tem_imagem = bool(req.midia and (req.midia.mimetype or "").startswith("image/"))
+                rota = roteador.decidir_rota(
+                    req.mensagem,
+                    tem_imagem,
+                    bool(rem and rem.ehAdmin),
+                    bool(rem and rem.registrado),
+                )
+            # Sufixo de instrução por rota (orientação específica; ou tudo no
+            # fallback). Injetado no system_instruction pelo before_model_callback.
+            instr_suf = roteador.instrucao_suplementar(req.mensagem, rota)
+            token_rota = request_context.definir_rota(
+                rota, roteador.tools_da_rota(rota), instr_suf
+            )
             try:
                 async for event in runner.run_async(
                     user_id=req.chatId,
@@ -223,10 +243,11 @@ async def chat(req: ChatRequest) -> ChatResponse:
                             if getattr(parte, "text", None):
                                 texto_final = parte.text
             finally:
+                request_context.limpar_rota(token_rota)
                 request_context.limpar_midia(token_midia)
                 request_context.limpar(tokens)
 
-        return ChatResponse(texto=texto_final, tools_acionadas=tools_acionadas)
+        return ChatResponse(texto=texto_final, tools_acionadas=tools_acionadas, rota=rota)
 
     except Exception as exc:
         logger.exception("Falha no /chat para %s", req.chatId)
