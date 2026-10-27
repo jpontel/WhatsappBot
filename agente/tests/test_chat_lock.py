@@ -5,6 +5,7 @@
 import asyncio
 
 import api.chat as chat_mod
+import shared.session_locks as locks_mod
 from schemas.chat import ChatRequest, MsgKey
 
 
@@ -40,7 +41,7 @@ def _instrumentar(monkeypatch):
 
 async def test_mesma_sessao_serializa(monkeypatch):
     estado = _instrumentar(monkeypatch)
-    chat_mod._session_locks.clear()
+    locks_mod._session_locks.clear()
 
     await asyncio.gather(*(chat_mod.chat(_req("grupo@g.us")) for _ in range(4)))
 
@@ -51,7 +52,7 @@ async def test_mesma_sessao_serializa(monkeypatch):
 
 async def test_sessoes_diferentes_rodam_em_paralelo(monkeypatch):
     estado = _instrumentar(monkeypatch)
-    chat_mod._session_locks.clear()
+    locks_mod._session_locks.clear()
 
     await asyncio.gather(chat_mod.chat(_req("a@g.us")), chat_mod.chat(_req("b@g.us")))
 
