@@ -11,6 +11,7 @@ from google.genai import types
 
 from repo import memoria_repo, rosto_repo
 from shared import request_context
+from shared.mcp_client import chamar_mcp
 from client import roteador
 from client.root_agent import runner
 from client.session import APP_NAME, session_service
@@ -44,6 +45,24 @@ def _mensagem_amigavel_para(exc: Exception) -> str | None:
     if "not found" in msg and "tool" in msg:
         return _MSG_TOOL_INEXISTENTE
     return None
+
+
+async def _reagir(req: ChatRequest, emoji: str) -> None:
+    """Reage à mensagem-gatilho via MCP do bot (emoji "" remove a reação).
+
+    As reações (⏳ "processando" / 💅 "pronto") só saem em turnos de AÇÃO — quem
+    decide isso é o roteador (rota de ação), que vive aqui no agente; por isso a
+    reação é emitida pelo agente, e NÃO mais pelo bot (que reagia a toda mensagem,
+    inclusive conversa). Falha de reação nunca derruba o turno.
+    """
+    try:
+        await chamar_mcp("reagir", {
+            "jid": req.chatId,
+            "msgKey": req.msgKey.model_dump(exclude_none=True),
+            "emoji": emoji,
+        })
+    except Exception:  # noqa: BLE001
+        logger.warning("Falha ao reagir %r em %s", emoji, req.chatId, exc_info=True)
 
 # A sessão do ADK é por chatId (= JID). Dois /chat simultâneos no mesmo chat
 # (comum em grupo) colidiam na sessão -> "session has been modified in storage".
@@ -235,6 +254,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
             token_rota = request_context.definir_rota(
                 rota, roteador.tools_da_rota(rota), instr_suf
             )
+            # Reação só em turno de AÇÃO (o usuário pediu pra FAZER algo): ⏳ ao
+            # iniciar, 💅 ao concluir. Conversa normal NÃO ganha reação nenhuma.
+            # Quem decide ação vs conversa é o roteador — por isso a reação sai
+            # daqui, não do bot (que antes reagia a toda mensagem).
+            eh_acao = settings.roteador_ativo and roteador.eh_rota_de_acao(rota)
+            if eh_acao:
+                await _reagir(req, "⏳")
             try:
                 async for event in runner.run_async(
                     user_id=req.chatId,
@@ -248,6 +274,12 @@ async def chat(req: ChatRequest) -> ChatResponse:
                         for parte in event.content.parts:
                             if getattr(parte, "text", None):
                                 texto_final = parte.text
+                # Concluiu: 💅 se realmente agiu (chamou alguma tool). Se era rota
+                # de ação mas o modelo não agiu, limpa o ⏳ pendente ("").
+                if tools_acionadas:
+                    await _reagir(req, "💅")
+                elif eh_acao:
+                    await _reagir(req, "")
             finally:
                 request_context.limpar_rota(token_rota)
                 request_context.limpar_contexto(token_ctx)

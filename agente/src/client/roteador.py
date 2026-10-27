@@ -169,6 +169,16 @@ def tools_da_rota(rota: str | None) -> frozenset[str] | None:
     return _TOOLS_POR_ROTA.get(rota, frozenset()) | _BASE
 
 
+def eh_rota_de_acao(rota: str | None) -> bool:
+    """True se a rota implica EXECUTAR algo (gera/envia mídia, agenda, memoriza,
+    reconhece rosto, busca...) — i.e., o usuário PEDIU algo para o bot FAZER.
+    `None` (conversa/fallback) e `visao` (só olhar/comentar uma imagem) NÃO são
+    ação. Usado para decidir se o turno merece reação (⏳/💅) no WhatsApp:
+    conversa normal não ganha reação nenhuma.
+    """
+    return bool(rota) and rota != "visao"
+
+
 def filtrar_tools(callback_context, llm_request) -> None:  # noqa: ANN001 - assinatura ADK
     """before_model_callback: restringe as function_declarations do turno à rota.
 
