@@ -212,6 +212,12 @@ async def chat(req: ChatRequest) -> ChatResponse:
                 midia_turno = {"base64": req.midia.base64, "mimetype": req.midia.mimetype}
             token_midia = request_context.definir_midia(midia_turno)
 
+            # Contexto recente (mensagens anteriores ao gatilho). Guardado no
+            # ContextVar para injeção EFÊMERA via before_model_callback — NÃO entra
+            # em _montar_conteudo (a sessão do ADK tem que ficar limpa). Ver
+            # client/contexto.py e [SEGURANÇA] no CLAUDE.md.
+            token_ctx = request_context.definir_contexto(req.contexto)
+
             # Roteador determinístico v0: decide a rota pelos sinais do turno e
             # restringe as tools expostas ao LLM (o filtro roda no
             # before_model_callback). None = fallback (todas as tools).
@@ -244,6 +250,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
                                 texto_final = parte.text
             finally:
                 request_context.limpar_rota(token_rota)
+                request_context.limpar_contexto(token_ctx)
                 request_context.limpar_midia(token_midia)
                 request_context.limpar(tokens)
 

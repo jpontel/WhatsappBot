@@ -5,6 +5,7 @@ import { ENV } from '../config/env.js';
 import { resolverNumeroRemetente } from '../core/identidade.js';
 import { iniciarDigitando, pararDigitando } from '../core/presenca.js';
 import { buscarPorNumero } from '../repository/pessoa.repository.js';
+import { snapshot } from '../core/contexto.js';
 import axios from 'axios';
 import pino from 'pino';
 
@@ -60,9 +61,17 @@ async function flush(chave: string): Promise<void> {
         const msgKey = itens[itens.length - 1]!.msgKey;
         const citacao = itens.length === 1 ? itens[0]!.citacao : null;
 
+        // Contexto recente do chat: as últimas N mensagens que chegaram ANTES do
+        // gatilho. Excluímos os ids do próprio lote (já registrados no buffer pelo
+        // dispatcher) para não duplicar a mensagem-gatilho — ela já vai em `mensagem`.
+        const idsLote = new Set(
+            itens.map(i => i.msgKey.id).filter((id): id is string => !!id),
+        );
+        const contexto = snapshot(usuarioJid, idsLote, ENV.CONTEXTO_MAX_MSGS);
+
         const resposta = await axios.post(
             `${ENV.AGENT_URL}/chat`,
-            { chatId: usuarioJid, mensagem, msgKey, midia, remetente, citacao },
+            { chatId: usuarioJid, mensagem, msgKey, midia, remetente, citacao, contexto },
             { timeout: AGENT_TIMEOUT_MS },
         );
 

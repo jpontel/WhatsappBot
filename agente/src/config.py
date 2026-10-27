@@ -68,6 +68,24 @@ class Settings(BaseSettings):
     # LLM). ~40 entradas ≈ 10 trocas recentes (msg + tool calls + resposta).
     historico_max_itens: int = 40
 
+    # Teto por QUANTIDADE do buffer de contexto recente injetado por turno
+    # (últimas mensagens do chat ANTES do gatilho). O bot já capa o payload, mas
+    # aqui é um clamp DEFENSIVO no lado do agente — satisfaz [SEGURANÇA] regra 3:
+    # tudo que entra no prompt e pode crescer precisa de limite numérico. O
+    # acréscimo é FIXO por-turno e NÃO-cumulativo (é efêmero, não entra na sessão
+    # do ADK). Ver client/contexto.py.
+    contexto_max_itens: int = 10
+
+    # Roteador determinístico (v0 — "porta de rota"): antes de chamar o modelo,
+    # classifica a intenção da mensagem por regras (sinais já disponíveis: mídia,
+    # verbos-gatilho, identidade) e RESTRINGE as ferramentas expostas ao LLM ao
+    # subconjunto daquela rota — encolhendo o schema de tools por turno (menos
+    # tokens) e tornando a decisão auditável. Quando nenhuma regra casa, NÃO
+    # filtra (fallback: todas as tools, igual ao comportamento antigo). É um
+    # kill switch: `false` desliga o roteador e volta ao LLM completo sempre.
+    # Ver client/roteador.py. NUNCA bloqueia — só atalha.
+    roteador_ativo: bool = True
+
     # Fuso usado para interpretar "agora" (lembretes/agendamentos) e injetar a
     # data/hora atual no contexto do modelo.
     timezone: str = "America/Sao_Paulo"
@@ -93,12 +111,14 @@ class Settings(BaseSettings):
     rosto_max_por_pessoa: int = 5           # teto de vetores (ângulos) por pessoa
     rosto_gen_max_pessoas: int = 4          # teto de pessoas/refs por geração de imagem
 
-    # Rate limit de GERAÇÃO de imagens por usuário (anti-abuso/custo): no máximo
-    # `imagem_rate_max` gerações dentro de uma janela DESLIZANTE de
-    # `imagem_rate_janela_seg` segundos. Conta só geração/edição com IA (Gemini);
-    # busca de imagem na web e áudio (TTS) não entram. Ver `_checar_limite_geracao`.
-    imagem_rate_max: int = 10               # máx. de gerações na janela
-    imagem_rate_janela_seg: int = 300       # janela em segundos (5 min)
+    # Teto DIÁRIO de GERAÇÃO de imagens por usuário (anti-abuso/custo): cada
+    # usuário pode gerar no máximo `imagem_max_por_dia` imagens por DIA-CALENDÁRIO
+    # (reseta à meia-noite no fuso de `timezone`). O ADMIN (ver `ADMIN_JID`) é
+    # ISENTO — gera quantas quiser. Conta só geração/edição com IA (Gemini); busca
+    # de imagem na web e áudio (TTS) não entram. Cada imagem ~512px custa ≈ US$0,045
+    # (747 tokens de saída a US$60/1M) — 10/dia ≈ US$0,45/dia por usuário no teto.
+    # Ver `_checar_limite_geracao`.
+    imagem_max_por_dia: int = 10            # máx. de gerações por dia (não-admin)
 
     # Rate limit de GERAÇÃO de música (Lyria) por usuário — contador INDEPENDENTE
     # do de imagem (gerar música não consome o teto de imagem e vice-versa). Mesma

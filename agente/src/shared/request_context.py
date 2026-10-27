@@ -46,6 +46,26 @@ def midia_atual() -> dict | None:
     return _midia.get()
 
 
+# Buffer de contexto recente do turno: as últimas mensagens do chat ANTES do
+# gatilho (lista de MensagemContexto). Fica aqui — e NÃO na Content enviada ao
+# runner — para que a injeção seja EFÊMERA: um before_model_callback a insere só
+# no llm_request do turno, nunca na sessão do ADK (ver client/contexto.py).
+_contexto_recente: ContextVar[list | None] = ContextVar("turno_contexto", default=None)
+
+
+def definir_contexto(itens: list | None) -> Token:
+    return _contexto_recente.set(itens)
+
+
+def limpar_contexto(token: Token) -> None:
+    _contexto_recente.reset(token)
+
+
+def contexto_atual() -> list | None:
+    """Contexto recente do turno (lista de MensagemContexto) ou None."""
+    return _contexto_recente.get()
+
+
 # Rota decidida pelo roteador determinístico (v0) e o conjunto de ferramentas
 # permitidas naquela rota. `tools_permitidas` None = sem filtro (fallback: todas
 # as tools). Lidos pelo before_model_callback que filtra o schema de tools do

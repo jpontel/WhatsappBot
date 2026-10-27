@@ -26,6 +26,17 @@ class Citacao(BaseModel):
     autor: str | None = None
 
 
+class MensagemContexto(BaseModel):
+    """Uma mensagem do buffer de contexto recente (anteriores ao gatilho).
+
+    `autor` pode faltar (None) — aí a linha injetada no prompt fica só com o
+    texto. `texto` pode ser um marcador de mídia ("[imagem]", "[áudio] legenda")
+    que o bot já capa do lado dele.
+    """
+    autor: str | None = None
+    texto: str
+
+
 class ChatRequest(BaseModel):
     chatId: str = Field(description="JID do WhatsApp; usado como user_id e session_id no ADK.")
     mensagem: str
@@ -33,8 +44,19 @@ class ChatRequest(BaseModel):
     midia: Midia | None = None
     remetente: Remetente | None = None
     citacao: Citacao | None = None
+    # Últimas N mensagens do chat ANTES do gatilho (ordem cronológica, já SEM a
+    # mensagem-gatilho). Opcional (default lista vazia) → compatível com clientes
+    # que não mandam. Injetado de forma EFÊMERA no prompt do turno (nunca entra na
+    # sessão do ADK) — ver client/contexto.py.
+    contexto: list[MensagemContexto] = Field(
+        default_factory=list,
+        description="Últimas mensagens do chat antes do gatilho (contexto efêmero do turno).",
+    )
 
 
 class ChatResponse(BaseModel):
     texto: str | None = None
     tools_acionadas: list[str] = Field(default_factory=list)
+    # Rota escolhida pelo roteador determinístico (v0) — telemetria/observabilidade.
+    # None = fallback (nenhuma regra casou; LLM recebeu todas as tools).
+    rota: str | None = None
