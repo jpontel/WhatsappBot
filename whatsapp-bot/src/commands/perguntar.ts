@@ -111,7 +111,17 @@ export default {
     execute: async (dto: ComandoExecutarDto) => {
         const { sock, msg, usuarioJid, conteudo, ehAdmin, remetenteJid } = dto;
 
-        if (!conteudo) {
+        // Mídia do turno (anexada OU citada): foto, figurinha, vídeo ou áudio.
+        // Detectada ANTES de rejeitar, para aceitar mídia-sozinha (ex.: só uma
+        // figurinha, sem texto) — o agente a "vê" e comenta.
+        const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+        const quoted = contextInfo?.quotedMessage;
+        const mensagemMidia = quoted ? quoted : msg.message;
+        const temMidia = mensagemMidia?.imageMessage || mensagemMidia?.stickerMessage
+            || mensagemMidia?.videoMessage || mensagemMidia?.audioMessage;
+
+        // Só rejeita quando NÃO há texto E NÃO há mídia (aí não há o que processar).
+        if (!conteudo && !temMidia) {
             await sock.sendMessage(usuarioJid, { react: { text: '❌', key: msg.key } });
             return await sock.sendMessage(usuarioJid, { text: "Precisa mandar uma pergunta!!! 🤨" });
         }
@@ -121,12 +131,8 @@ export default {
         // turnos de AÇÃO — assim conversa normal não ganha reação nenhuma.
         iniciarDigitando(sock, usuarioJid);
 
-        // Baixa mídia (se houver) já no recebimento; falha de download não derruba o /p.
+        // Baixa a mídia (se houver) já no recebimento; falha de download não derruba o /p.
         let midia: Midia | null = null;
-        const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
-        const quoted = contextInfo?.quotedMessage;
-        const mensagemMidia = quoted ? quoted : msg.message;
-        const temMidia = mensagemMidia?.imageMessage || mensagemMidia?.videoMessage || mensagemMidia?.audioMessage;
         if (temMidia) {
             try {
                 const buffer = await downloadMediaMessage(
@@ -136,6 +142,7 @@ export default {
                     { reuploadRequest: sock.updateMediaMessage, logger: pino({ level: 'error' }) },
                 );
                 const mimetype = mensagemMidia?.imageMessage?.mimetype
+                    || mensagemMidia?.stickerMessage?.mimetype
                     || mensagemMidia?.videoMessage?.mimetype
                     || mensagemMidia?.audioMessage?.mimetype
                     || 'image/jpeg';

@@ -89,12 +89,22 @@ export async function enviarMensagem(
             });
         }
 
-        if (!text) continue;
+        // Mídia direta no turno (foto/figurinha/vídeo/áudio, mesmo SEM legenda).
+        // Sem isso, uma figurinha/imagem sozinha não tem `text` e seria descartada
+        // antes dos gatilhos — queremos que o agente "veja" e responda a ela.
+        const temMidia = !!(msg.message?.imageMessage || msg.message?.stickerMessage
+            || msg.message?.videoMessage || msg.message?.audioMessage);
 
-        console.log(`📩 Mensagem de ${jid}: ${text}`);
+        // Só ignora de vez quando NÃO há texto E NÃO há mídia (mensagem vazia de
+        // verdade). Mídia-sozinha segue para os gatilhos (e é barrada lá se não
+        // for comando/menção/bypass — ex.: figurinha solta em grupo).
+        if (!text && !temMidia) continue;
 
-        const comando = text.split(' ')[0]?.toLowerCase();
-        const instrucao = text.slice(comando?.length).trim();
+        console.log(`📩 Mensagem de ${jid}: ${text || '[mídia sem texto]'}`);
+
+        // `text` pode ser vazio/undefined quando é mídia-sozinha — coalesce p/ ''.
+        const comando = (text ?? '').split(' ')[0]?.toLowerCase();
+        const instrucao = (text ?? '').slice(comando?.length).trim();
 
         const ehComando = !!comando && comandos.has(comando);
         // Comando explícito sempre vence; senão, dispara se a mensagem mencionar o
@@ -133,14 +143,16 @@ export async function enviarMensagem(
             continue;
         }
 
-        // Gatilho por menção: roteia pro MESMO fluxo do /p, com o texto sem a menção.
-        const conteudoSemMencao = text.replace(/@\d+/g, '').replace(/\s+/g, ' ').trim();
+        // Gatilho por menção/bypass: roteia pro MESMO fluxo do /p, texto sem a menção.
+        const conteudoSemMencao = (text ?? '').replace(/@\d+/g, '').replace(/\s+/g, ' ').trim();
         const cmdP = comandos.get('/p');
         if (!cmdP) {
-            console.warn('Bot mencionado, mas o comando /p não está disponível.');
+            console.warn('Acionado, mas o comando /p não está disponível.');
             continue;
         }
-        if (!conteudoSemMencao) {
+        // Sem texto útil E sem mídia: só avisa (caso de @menção vazia). Com mídia
+        // (figurinha/foto sozinha), segue pro /p — o agente a "vê" e comenta.
+        if (!conteudoSemMencao && !temMidia) {
             await sock.sendMessage(jid, { text: 'oi! me chama junto com a pergunta que eu te respondo 💅' });
             continue;
         }
