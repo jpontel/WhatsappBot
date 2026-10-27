@@ -5,6 +5,7 @@ import carregarComandos from './comandos.js';
 import { agendamentoRepository } from '../repository/agendamento.repository.js';
 import { schedulerService } from '../services/scheduler.service.js';
 import { resolverNumeroRemetente, ehAdminPorJid, botFoiMencionado } from './identidade.js';
+import { registrar, textoParaContexto } from './contexto.js';
 
 // Confirmação de lembretes URGENTES: qualquer mensagem do solicitante naquele
 // chat encerra a cobrança (nag). Ignora as próprias mensagens de lembrete do bot
@@ -68,6 +69,24 @@ export async function enviarMensagem(
             || msg.message?.extendedTextMessage?.text
             || msg.message?.imageMessage?.caption
             || msg.message?.videoMessage?.caption;
+
+        // Buffer de contexto: registra TODA mensagem (gatilho ou não, com ou sem
+        // texto) ANTES de qualquer `continue`, para que quando um /p ou @menção
+        // chegar o agente receba as últimas N mensagens do chat como contexto.
+        // Sem resolução LID→PN aqui (async caro no hot path) — pushName basta;
+        // fallback para os dígitos do remetente. Mídia entra só como marcador.
+        const textoCtx = textoParaContexto(msg.message);
+        if (textoCtx) {
+            const autorCtx = msg.pushName
+                ?? (msg.key.participant ?? jid).split('@')[0]
+                ?? null;
+            registrar(jid, {
+                msgId: msg.key.id ?? '',
+                autor: autorCtx,
+                texto: textoCtx,
+                ts: Number(msg.messageTimestamp) || Date.now(),
+            });
+        }
 
         if (!text) continue;
 

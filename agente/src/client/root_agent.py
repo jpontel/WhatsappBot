@@ -4,6 +4,7 @@ from google.genai import types
 from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 
+from client.contexto import injetar_contexto
 from client.fallback_model import FallbackGemini
 from client.historico import limitar_historico
 from client.instruction import INSTRUCTION
@@ -81,13 +82,16 @@ def _antes_do_modelo(callback_context, llm_request):  # noqa: ANN001 - assinatur
 
     1. `limitar_historico` — corta a janela de histórico enviada ao modelo;
     2. `filtrar_tools` — restringe as ferramentas à rota decidida (roteador v0);
-    3. `injetar_instrucao` — concatena a orientação da rota no system_instruction.
+    3. `injetar_instrucao` — concatena a orientação da rota no system_instruction;
+    4. `injetar_contexto` — insere o bloco [contexto-recente] (efêmero) antes do
+       gatilho. DEPOIS do corte de histórico para não ser descartado por ele.
 
     Todos mutam o `llm_request` e retornam None (não substituem a resposta).
     """
     limitar_historico(callback_context, llm_request)
     filtrar_tools(callback_context, llm_request)
     injetar_instrucao(callback_context, llm_request)
+    injetar_contexto(callback_context, llm_request)
     return None
 
 
