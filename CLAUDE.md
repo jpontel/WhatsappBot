@@ -54,9 +54,21 @@ São dois processos. Ordem importa: o agente precisa do MCP do bot disponível.
 
 ## Servidor de produção (Linode / Akamai)
 
+> ⚠️ **PRODUÇÃO ATUAL (desde 2026-10-26): instância SECUNDÁRIA `wpp-bot-secondary`.** A primária `clarice` (abaixo) está em `billing_suspension` e NÃO está no ar. Quando o billing da primária for regularizado e quisermos voltar, reverter este banner.
+>
+> - **Instância:** label `wpp-bot-secondary` · id `109054072` · região `br-gru` · Ubuntu · plano 4 GB RAM · swap 2,5 GB. **Conta Linode DIFERENTE** da primária → não aparece no `linode-cli` desta máquina (que só vê a conta da `clarice`).
+> - **IP público:** `172.237.48.33`.
+> - **Conexão SSH (chave dedicada, gitignored):** `ssh -i linode_secondary/id_ed25519 root@172.237.48.33` (a chave pode exigir `chmod 600` local).
+> - **Deploy/containers:** em **`/root/bot/`** (NÃO `/root/clarice`), via `/root/bot/docker-compose.yml`. Dois containers `bot-baileys` (Baileys+MCP 3001) e `agente-adk` (FastAPI/ADK 8000), rede interna `bot_default` (bot→agente `http://agente:8000`). `TELEFONE_CELULAR=5541984598825`.
+> - **Operação:** `cd /root/bot && docker compose up -d --build` · `docker logs -f agente-adk` / `bot-baileys`.
+> - **"❌ Agente fora do ar"** nessa instância normalmente é **timeout de 180s** do bot (`AGENT_TIMEOUT_MS` em `perguntar.ts`) em requisições pesadas — NÃO é queda. RAM é apertada (~4 GB, pouco livre).
+> - Detalhes completos (re-pareamento `reparear.sh`, Minecraft no host, etc.) na memória `clarice-linode-secundaria`.
+
+### Primária `clarice` (suspensa — produção anterior, para quando voltar)
+
 A instância de produção fica na Linode. Gestão de recursos pela `linode-cli` (instalada via `pip3 install linode-cli`; autenticar com `linode-cli configure`).
 
-- **Instância:** label `clarice` · id `94666542` · região `us-ord` · Ubuntu 24.04 · plano `g6-standard-1` (2 GB RAM, 50 GB disco) · swap de 2 GB em `/swapfile`.
+- **Instância:** label `clarice` · id `94666542` · região `us-ord` · Ubuntu 24.04 · plano `g6-standard-1` (2 GB RAM, 50 GB disco) · swap de 2 GB em `/swapfile`. ⚠️ Dados possivelmente desatualizados: numa verificação em 2026-10-26 a `linode-cli` mostrou IP `172.233.15.223`, região `br-gru`, plano `g6-standard-2` — conferir no painel ao reativar.
 - **IP público:** `172.232.7.171`.
 - **Conexão SSH:** `ssh root@172.232.7.171` — acesso por **chave** (a `~/.ssh/id_ed25519` desta máquina já está autorizada em `/root/.ssh/authorized_keys`). **Nunca** colocar a senha de root neste arquivo (ele é versionado).
 - **Achar o IP de novo:** `linode-cli linodes list --text --format "id,label,status,ipv4"`.
