@@ -111,14 +111,12 @@ class Settings(BaseSettings):
     rosto_max_por_pessoa: int = 5           # teto de vetores (ângulos) por pessoa
     rosto_gen_max_pessoas: int = 4          # teto de pessoas/refs por geração de imagem
 
-    # Teto DIÁRIO de GERAÇÃO de imagens por usuário (anti-abuso/custo): cada
-    # usuário pode gerar no máximo `imagem_max_por_dia` imagens por DIA-CALENDÁRIO
-    # (reseta à meia-noite no fuso de `timezone`). O ADMIN (ver `ADMIN_JID`) é
-    # ISENTO — gera quantas quiser. Conta só geração/edição com IA (Gemini); busca
-    # de imagem na web e áudio (TTS) não entram. Cada imagem ~512px custa ≈ US$0,045
-    # (747 tokens de saída a US$60/1M) — 10/dia ≈ US$0,45/dia por usuário no teto.
-    # Ver `_checar_limite_geracao`.
-    imagem_max_por_dia: int = 10            # máx. de gerações por dia (não-admin)
+    # Rate limit de GERAÇÃO de imagens por usuário (anti-abuso/custo), em janela
+    # DESLIZANTE (mesma mecânica da música — `_checar_limite_geracao`). Conta só
+    # geração/edição com IA (Gemini); busca de imagem na web e áudio (TTS) não
+    # entram. Cada imagem ~512px custa ≈ US$0,045. Tunável.
+    imagem_rate_max: int = 10               # máx. de imagens na janela
+    imagem_rate_janela_seg: int = 300       # janela em segundos (5 min)
 
     # Rate limit de GERAÇÃO de música (Lyria) por usuário — contador INDEPENDENTE
     # do de imagem (gerar música não consome o teto de imagem e vice-versa). Mesma
