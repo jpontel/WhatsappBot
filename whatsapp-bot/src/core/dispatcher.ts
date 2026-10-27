@@ -5,6 +5,7 @@ import carregarComandos from './comandos.js';
 import { agendamentoRepository } from '../repository/agendamento.repository.js';
 import { schedulerService } from '../services/scheduler.service.js';
 import { resolverNumeroRemetente, ehAdminPorJid, botFoiMencionado } from './identidade.js';
+import { buscarPorNumero } from '../repository/pessoa.repository.js';
 import { registrar, textoParaContexto } from './contexto.js';
 
 // Confirmação de lembretes URGENTES: qualquer mensagem do solicitante naquele
@@ -100,7 +101,19 @@ export async function enviarMensagem(
         // próprio bot (ignora ecos `fromMe` para não entrar em loop).
         const mencionouBot = !ehComando && !msg.key.fromMe && await botFoiMencionado(sock, msg);
 
-        if (!ehComando && !mencionouBot) continue;
+        // Bypass em DM: quem está CADASTRADO no banco (ou é o admin) dispara o
+        // agente SEM precisar de /p ou @menção numa conversa PRIVADA — a Clarice
+        // responde sozinha. Só em DM (nunca em grupo, pra não responder tudo),
+        // só para mensagem que não é comando nem menção, e nunca para ecos do
+        // próprio bot. A checagem de "cadastrado" é a MESMA do /p (resolve o
+        // número e consulta pessoa.repository) — em DM isso é barato.
+        let ehDmCadastrado = false;
+        if (!ehComando && !mencionouBot && !msg.key.fromMe && !isJidGroup(jid)) {
+            const numeroDm = await resolverNumeroRemetente(sock, msg);
+            ehDmCadastrado = ehAdminPorJid(numeroDm) || (!!numeroDm && !!buscarPorNumero(numeroDm));
+        }
+
+        if (!ehComando && !mencionouBot && !ehDmCadastrado) continue;
 
         const remetenteNumero = await resolverNumeroRemetente(sock, msg);
         const ehAdmin = ehAdminPorJid(remetenteNumero);
