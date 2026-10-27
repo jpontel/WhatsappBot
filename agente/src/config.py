@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # pro flash-lite (mais barato) só como rede de segurança. OBS: os modelos
     # gemini-2.5 foram descontinuados para contas novas (404 "no longer available
     # to new users"); usar geração 3.x. gemini-3.5-flash-lite confirmado 200.
-    gemini_fallback_models: list[str] = ["gemini-3.5-flash-lite"]
+    gemini_fallback_models: list[str] = ["gemini-3.5-flash"]
 
     # Amostragem da geração de texto — combate a repetição de tom/bordões.
     # Mais alta = mais variedade (e mais risco de incoerência). Tunável.
