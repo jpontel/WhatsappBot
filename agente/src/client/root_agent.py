@@ -7,6 +7,7 @@ from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 from client.fallback_model import FallbackGemini
 from client.historico import limitar_historico
 from client.instruction import INSTRUCTION
+from client.roteador import filtrar_tools, injetar_instrucao
 from client.session import APP_NAME, session_service
 from tools.tools import (
     agendar_alerta,
@@ -74,14 +75,30 @@ config_geracao = types.GenerateContentConfig(
     top_p=settings.gemini_top_p,
 )
 
+
+def _antes_do_modelo(callback_context, llm_request):  # noqa: ANN001 - assinatura ADK
+    """Encadeia os before_model_callbacks do turno, na ordem:
+
+    1. `limitar_historico` — corta a janela de histórico enviada ao modelo;
+    2. `filtrar_tools` — restringe as ferramentas à rota decidida (roteador v0);
+    3. `injetar_instrucao` — concatena a orientação da rota no system_instruction.
+
+    Todos mutam o `llm_request` e retornam None (não substituem a resposta).
+    """
+    limitar_historico(callback_context, llm_request)
+    filtrar_tools(callback_context, llm_request)
+    injetar_instrucao(callback_context, llm_request)
+    return None
+
+
 root_agent = LlmAgent(
     name="megatron",
     model=modelo,
     instruction=INSTRUCTION,
     generate_content_config=config_geracao,
-    # Corta o histórico replayado às últimas N entradas (ver historico.py):
-    # o ADK reenviaria a sessão inteira a cada turno por padrão.
-    before_model_callback=limitar_historico,
+    # Corta o histórico replayado (historico.py) E restringe as tools à rota
+    # decidida pelo roteador determinístico v0 (roteador.py). Ver _antes_do_modelo.
+    before_model_callback=_antes_do_modelo,
     tools=[
         mcp_toolset,
         buscar_web,
