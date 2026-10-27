@@ -20,11 +20,11 @@ class Settings(BaseSettings):
     # Geração de MÚSICA (Lyria 3). O `clip` gera clipes de ~30s (versão limitada);
     # o `pro` faria músicas longas (não usado, mais caro). Devolve MP3 base64.
     gemini_music_model: str = "lyria-3-clip-preview"
-    # Modelos de fallback (em ordem) quando o primário falha com 429/503. NÃO
-    # incluir gemini-3-flash-preview: ele é +67% input / +20% output que o
-    # gemini-2.5-flash primário — escalar pra ele no overload encarecia em
-    # silêncio. Caímos pro flash-lite (mais barato) só como rede de segurança.
-    gemini_fallback_models: list[str] = ["gemini-2.5-flash-lite"]
+    # Modelos de fallback (em ordem) quando o primário falha com 429/503. Caímos
+    # pro flash-lite (mais barato) só como rede de segurança. OBS: os modelos
+    # gemini-2.5 foram descontinuados para contas novas (404 "no longer available
+    # to new users"); usar geração 3.x. gemini-3.5-flash-lite confirmado 200.
+    gemini_fallback_models: list[str] = ["gemini-3.5-flash-lite"]
 
     # Amostragem da geração de texto — combate a repetição de tom/bordões.
     # Mais alta = mais variedade (e mais risco de incoerência). Tunável.

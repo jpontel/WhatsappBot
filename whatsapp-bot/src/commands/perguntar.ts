@@ -83,9 +83,8 @@ async function flush(chave: string): Promise<void> {
         if (texto && visivel) {
             await sock.sendMessage(usuarioJid, { text: texto });
         }
-        for (const key of keys) {
-            await sock.sendMessage(usuarioJid, { react: { text: '💅', key } });
-        }
+        // A reação de conclusão (💅) é emitida pelo AGENTE, e só em turnos de
+        // AÇÃO (ver agente/src/api/chat.py). Conversa normal não ganha reação.
     } catch (error: unknown) {
         console.error("Erro no /p (ponte agente):", error);
         const offline = axios.isAxiosError(error) && (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED');
@@ -117,9 +116,9 @@ export default {
             return await sock.sendMessage(usuarioJid, { text: "Precisa mandar uma pergunta!!! 🤨" });
         }
 
-        // Acusa o recebimento de cada /p na hora: reage com ⏳ e mostra os
-        // três pontinhos de "digitando…" enquanto a IA processa o lote.
-        await sock.sendMessage(usuarioJid, { react: { text: '⏳', key: msg.key } });
+        // Mostra os três pontinhos de "digitando…" enquanto a IA processa o lote.
+        // A reação ⏳ NÃO sai mais daqui: quem reage (⏳/💅) é o AGENTE, e só em
+        // turnos de AÇÃO — assim conversa normal não ganha reação nenhuma.
         iniciarDigitando(sock, usuarioJid);
 
         // Baixa mídia (se houver) já no recebimento; falha de download não derruba o /p.
