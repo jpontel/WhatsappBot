@@ -1,6 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { enviarMensagem, type Comando } from '../src/core/dispatcher.js';
 
+// O bypass em DM consulta pessoa.repository (buscarPorNumero) para saber se o
+// remetente é cadastrado — mockado aqui para controlar isso sem tocar no SQLite.
+vi.mock('../src/repository/pessoa.repository.js', () => ({
+    buscarPorNumero: vi.fn(),
+}));
+import { buscarPorNumero } from '../src/repository/pessoa.repository.js';
+
 function mockSock() {
     return { sendMessage: vi.fn() } as any;
 }
@@ -234,5 +241,48 @@ describe('enviarMensagem (dispatcher)', () => {
 
         expect(execute).toHaveBeenCalledOnce();
         expect(execute.mock.calls[0][0].conteudo).toBe('quem é essa pessoa');
+    });
+
+    it('DM de pessoa CADASTRADA aciona o /p sem /p nem @menção (bypass)', async () => {
+        (buscarPorNumero as any).mockReturnValue({ id: 1, numero: '5511999998888@s.whatsapp.net', nome: 'Fulano' });
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSock(),
+            { messages: [msgComTexto('5511999998888@s.whatsapp.net', 'oi clarice tudo bem')], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).toHaveBeenCalledOnce();
+        expect(execute.mock.calls[0][0].conteudo).toBe('oi clarice tudo bem');
+    });
+
+    it('DM de pessoa NÃO cadastrada não aciona o /p', async () => {
+        (buscarPorNumero as any).mockReturnValue(null);
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSock(),
+            { messages: [msgComTexto('5511777776666@s.whatsapp.net', 'oi clarice')], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('em GRUPO o bypass não vale, mesmo para cadastrado (exige /p ou @menção)', async () => {
+        (buscarPorNumero as any).mockReturnValue({ id: 1, numero: '5511999998888@s.whatsapp.net', nome: 'Fulano' });
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSock(),
+            { messages: [msgComTexto('123@g.us', 'oi pessoal')], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).not.toHaveBeenCalled();
     });
 });
