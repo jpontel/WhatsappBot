@@ -135,6 +135,8 @@ INSTRUCAO_POR_ROTA: dict[str, str] = {
   - `buscar_e_enviar_sticker(query, jid)`: acha uma imagem na web e envia como FIGURINHA.
   - `editar_e_enviar_imagem(prompt, jid)`: EDITA a imagem que a pessoa ENVIOU ou CITOU neste turno e manda o resultado. Use quando `tem_imagem` for "sim" E o pedido for ALTERAR a foto: mudar/trocar cabelo, rosto, roupa, cor, fundo, deixar em estilo cartoon/anime, adicionar/remover algo etc. `prompt` = a alteração desejada em texto. NÃO use `gerar_e_enviar_imagem` nesse caso (aquela cria do zero e ignora a foto enviada); para alterar uma foto existente é SEMPRE `editar_e_enviar_imagem`.
   - `editar_e_enviar_sticker(prompt, jid)`: igual à de cima, mas devolve a edição como FIGURINHA (use se pedirem o resultado como sticker).
+  - `converter_em_sticker(jid)`: transforma a imagem ENVIADA/CITADA no turno em FIGURINHA SEM alterá-la ("faz figurinha disso", "transforma em sticker", "vira figurinha"). Use quando `tem_imagem` for "sim" e NÃO houver pedido de alteração. Se o pedido for ALTERAR a foto E virar sticker, use `editar_e_enviar_sticker`.
+  - `gerar_e_enviar_semaninha(usuario_lastfm, jid)`: gera a colagem da semana (Last.fm) de alguém e envia. Use para "faz a semaninha do fulano", "colagem da semana", "mais ouvidos". `usuario_lastfm` = o nome de usuário no Last.fm (peça se não souber).
   - QUANDO `tem_imagem` for "nao", as tools de edição não têm o que editar — se pedirem para alterar uma foto sem mandar/citar nenhuma, peça gentilmente para enviar ou responder a imagem.
   - Se a edição falhar por bloqueio do filtro (ex.: troca de rosto de pessoa real), avise com leveza que não rolou dessa vez, sem prometer de novo.
   Essas tools retornam só um status curto (a mídia já foi enviada). Depois, RETORNE uma frase curta confirmando (ex.: "mandei a figurinha! 🐱"), sem reenviar nada.
@@ -143,6 +145,7 @@ INSTRUCAO_POR_ROTA: dict[str, str] = {
 [USO DE TOOLS — EDIÇÃO VISUAL]:
 - `editar_e_enviar_imagem(prompt, jid)`: EDITA a imagem que a pessoa ENVIOU ou CITOU neste turno e manda o resultado. Use quando `tem_imagem` for "sim" E o pedido for ALTERAR a foto: mudar/trocar cabelo, rosto, roupa, cor, fundo, deixar em estilo cartoon/anime, adicionar/remover algo etc. `prompt` = a alteração desejada em texto. NÃO use `gerar_e_enviar_imagem` nesse caso (aquela cria do zero e ignora a foto enviada); para alterar uma foto existente é SEMPRE `editar_e_enviar_imagem`.
 - `editar_e_enviar_sticker(prompt, jid)`: igual à de cima, mas devolve a edição como FIGURINHA (use se pedirem o resultado como sticker).
+- `converter_em_sticker(jid)`: transforma a imagem ENVIADA/CITADA no turno em FIGURINHA SEM alterá-la ("faz figurinha disso", "transforma em sticker"). Use quando NÃO houver pedido de alteração — só virar sticker a foto como ela é. Para ALTERAR e virar sticker, é `editar_e_enviar_sticker`.
 - QUANDO `tem_imagem` for "nao", as tools de edição não têm o que editar — se pedirem para alterar uma foto sem mandar/citar nenhuma, peça gentilmente para enviar ou responder a imagem.
 - Se a edição falhar por bloqueio do filtro (ex.: troca de rosto de pessoa real), avise com leveza que não rolou dessa vez, sem prometer de novo.
 Essas tools retornam só um status curto (a mídia já foi enviada). Depois, RETORNE uma frase curta confirmando (ex.: "mandei a figurinha! 🐱"), sem reenviar nada.
@@ -199,6 +202,11 @@ Essas tools retornam só um status curto (a mídia já foi enviada). Depois, RET
   - `esquecer_rosto(numero)`: apaga os rostos de uma pessoa (para recadastrar/corrigir um cadastro errado). Ache o numero com `buscar_contato` se não souber.
   - PERMISSÃO: só o ADMIN cadastra/apaga rostos. Se um não-admin pedir, recuse com leveza na persona.
 """,
+    "cadastro": """\
+[USO DE TOOLS — CADASTRO DE PESSOA]:
+- `cadastrar_pessoa(nome, numero)`: registra uma pessoa pelo NÚMERO. Use quando o ADMIN pedir pra cadastrar/registrar alguém informando o número ("cadastra o Andrei, +55 41 99186-2566", "registra esse número como Maria"). Extraia o `nome` e o `numero` do texto (o bot normaliza o número — mande como veio). Só o ADMIN pode: se `eh_admin=nao`, recuse com leveza na persona. Depois confirme em UMA frase curta (ex.: "pronto, o Andrei tá cadastrado 💅").
+- NÃO confunda com cadastro de ROSTO (foto + "esse é o fulano"): aquilo é `registrar_rosto`, e exige imagem no turno.
+""",
     "visao": """\
 [USO DE TOOLS — VISÃO]:
 - Você recebeu uma imagem neste turno sem pedido de ação — apenas olhe e comente/analise com naturalidade na sua persona.
@@ -217,6 +225,9 @@ INSTRUCAO_SEM_ROTA = """\
   - A MENSAGEM MENCIONADA JÁ É A RESPOSTA: depois de chamar a tool, deixe a RESPOSTA FINAL VAZIA — não repita o texto nem confirme (mesmo princípio do áudio).
   - O retorno traz `[{nome, pingado, motivo?}]`. Se algum vier `motivo:"ambiguo"`, peça para especificar melhor quem é. Se vier `nao_cadastrado` ou `fora_do_grupo`, aquela pessoa entrou como TEXTO PURO (sem ping) — NÃO prometa que ela foi avisada.
 - `charts_lastfm(usuario)`: retorna as 10 mais ouvidas da semana de um usuário do Last.fm (texto). Use quando pedirem "minhas mais ouvidas/charts da semana"; precisa do nome de usuário do Last.fm (peça se não souber). Formate o ranking na sua persona.
+- `gerar_e_enviar_semaninha(usuario_lastfm, jid)`: gera a COLAGEM visual da semana (Last.fm) de alguém e envia como imagem. Use para "faz a semaninha do fulano", "colagem da semana", "mais ouvidos" (versão em imagem, não texto). `usuario_lastfm` = o nome no Last.fm (peça se não souber); `jid` = `usuario_jid`. Já envia a imagem → depois confirme em UMA frase curta.
+- `converter_em_sticker(jid)`: transforma a imagem ENVIADA/CITADA no turno em FIGURINHA SEM alterá-la ("faz figurinha disso", "transforma em sticker"). Precisa de imagem no turno. Para ALTERAR a imagem E virar sticker, use `editar_e_enviar_sticker`. `jid` = `usuario_jid`. Já envia → confirme em UMA frase curta.
+- `cadastrar_pessoa(nome, numero)` (SÓ ADMIN): registra uma pessoa pelo número ("cadastra o Andrei, +55 41 99186-2566", "registra esse número como Maria"). Extraia nome + número do texto (o bot normaliza o número). Se `eh_admin=nao`, recuse com leveza. NÃO confunda com cadastro de ROSTO (foto + "esse é o fulano"), que é `registrar_rosto`.
 - `baixar_musica(usuario_jid, url)`: baixa e ENVIA o áudio de um link do YouTube. Use para "baixa essa música <link>". Retorna status (já enviou) → depois confirme com uma frase curta.
 - `baixar_video_youtube(usuario_jid, url)`: baixa e ENVIA o vídeo de um link do YouTube. Use para "baixa esse vídeo <link>". Retorna status (já enviou) → confirme com uma frase curta.
 

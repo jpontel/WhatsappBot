@@ -17,7 +17,9 @@ from tools.tools import (
     buscar_e_enviar_imagem,
     buscar_e_enviar_sticker,
     buscar_web,
+    cadastrar_pessoa,
     cancelar_alerta,
+    converter_em_sticker,
     deepsearch_artigos,
     editar_alerta,
     editar_e_enviar_imagem,
@@ -29,6 +31,7 @@ from tools.tools import (
     gerar_e_enviar_imagem,
     gerar_e_enviar_imagem_com_pessoas,
     gerar_e_enviar_musica,
+    gerar_e_enviar_semaninha,
     gerar_e_enviar_sticker,
     listar_alertas,
     listar_memorias,
@@ -48,6 +51,10 @@ _MCP_TOOLS_OCULTAS = {
     "listar_agendamentos",
     "cancelar_agendamento",
     "editar_agendamento",
+    # Cadastro e semaninha têm wrappers Python (gate de admin / montagem de args);
+    # esconder as MCP cruas força o LLM a usar os wrappers.
+    "cadastrar_pessoa",
+    "gerar_e_enviar_semaninha",
 }
 
 
@@ -118,11 +125,14 @@ root_agent = LlmAgent(
         editar_e_enviar_sticker,
         gerar_e_enviar_audio,
         gerar_e_enviar_musica,
+        gerar_e_enviar_semaninha,
+        converter_em_sticker,
         agendar_alerta,
         listar_alertas,
         cancelar_alerta,
         editar_alerta,
         buscar_contato,
+        cadastrar_pessoa,
         listar_participantes,
         salvar_memoria,
         listar_memorias,

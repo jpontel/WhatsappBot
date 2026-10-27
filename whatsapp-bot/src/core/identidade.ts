@@ -77,7 +77,7 @@ function soDigitos(jid: string): string {
  * forma de 13 dígitos (55 DD 9 XXXXXXXX) para a de 12 (55 DD XXXXXXXX), para que
  * as duas representem o mesmo número. Não-BR / não-celular passam intactos.
  */
-function normalizarNonoDigito(num: string): string {
+export function normalizarNonoDigito(num: string): string {
     const m = num.match(/^55(\d{2})9(\d{8})$/);
     return m ? `55${m[1]}${m[2]}` : num;
 }

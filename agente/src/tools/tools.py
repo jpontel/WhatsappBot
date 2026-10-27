@@ -743,6 +743,47 @@ async def gerar_e_enviar_musica(prompt: str, jid: str) -> dict:
     return await _entregar(gerar_musica(prompt), "enviar_audio", jid)
 
 
+async def gerar_e_enviar_semaninha(usuario_lastfm: str, jid: str) -> dict:
+    """GERA a colagem da semana (Last.fm) de um usuário e a ENVIA no WhatsApp.
+
+    Use quando pedirem a "semaninha", a "colagem da semana" ou os "mais ouvidos"
+    de alguém no Last.fm ("faz a semaninha do fulano", "manda a colagem da semana
+    do beltrano"). `usuario_lastfm` = o nome de usuário no Last.fm (peça se não
+    souber); `jid` = `usuario_jid` do contexto. Não retorna a imagem (já é enviada)
+    — depois confirme em UMA frase curta.
+
+    Returns:
+        `{"status": "ok"}` em sucesso (a imagem já foi enviada) ou `{"erro": "..."}`.
+    """
+    try:
+        await chamar_mcp("gerar_e_enviar_semaninha", {"usuario": usuario_lastfm, "jid": jid})
+    except Exception as exc:  # noqa: BLE001 - devolve erro pro modelo, não derruba o turno
+        return {"erro": f"Falha ao gerar a semaninha: {exc}"}
+    return {"status": "ok"}
+
+
+async def converter_em_sticker(jid: str) -> dict:
+    """Transforma a imagem ENVIADA/CITADA no turno em FIGURINHA, SEM alterá-la.
+
+    Use quando pedirem para virar sticker a foto deste turno exatamente como ela
+    é ("faz figurinha disso", "transforma em sticker", "vira figurinha"). Para
+    ALTERAR a imagem e já entregar como figurinha, use `editar_e_enviar_sticker`.
+    `jid` = `usuario_jid` do contexto. Os bytes vêm do contexto do turno (não passe
+    base64). Não retorna a figurinha (já é enviada) — depois confirme em UMA frase.
+
+    Returns:
+        `{"status": "ok"}` em sucesso ou `{"erro": "..."}`.
+    """
+    midia = request_context.midia_atual()
+    if not midia:
+        return {"erro": "Não recebi imagem neste turno — peça pra enviar ou citar uma foto."}
+    try:
+        await chamar_mcp("enviar_sticker", {"jid": jid, "mediaBase64": midia["base64"]})
+    except Exception as exc:  # noqa: BLE001
+        return {"erro": f"Falha ao converter em figurinha: {exc}"}
+    return {"status": "ok"}
+
+
 # --- Memória de longo prazo por usuário --------------------------------------
 # Guarda/recupera trechos relevantes por pessoa (`numero`). A recuperação para
 # o contexto é automática (bloco [memória-do-usuário]); estas tools são para
@@ -963,6 +1004,35 @@ async def buscar_contato(nome: str) -> dict:
     if not contatos:
         return {"contatos": [], "aviso": f"Nenhum contato chamado '{nome}' está cadastrado."}
     return {"contatos": contatos}
+
+
+async def cadastrar_pessoa(nome: str, numero: str) -> dict:
+    """Cadastra/registra uma pessoa pelo NÚMERO (identidade), restrito ao ADMIN.
+
+    Use quando o ADMIN pedir para cadastrar/registrar alguém informando o número
+    ("cadastra o Andrei, +55 41 99186-2566", "registra esse número como Maria").
+    O bot normaliza o número (JID canônico) e grava. NÃO confunda com cadastro de
+    ROSTO (foto + "esse é o fulano"): aquilo é `registrar_rosto`.
+
+    Args:
+        nome: o nome da pessoa, como o admin falou.
+        numero: o número informado pelo admin (qualquer formato — o bot normaliza).
+
+    Returns:
+        `{"status": "ok", "nome": ...}` em sucesso ou `{"erro": "..."}`.
+    """
+    _proprio, eh_admin, _reg = request_context.atual()
+    if not eh_admin:
+        return {"erro": "Só o admin pode cadastrar pessoas."}
+    if not (nome or "").strip():
+        return {"erro": "Preciso do nome da pessoa pra cadastrar."}
+    if not (numero or "").strip():
+        return {"erro": "Preciso do número da pessoa pra cadastrar."}
+    try:
+        await chamar_mcp("cadastrar_pessoa", {"nome": nome, "numero": numero})
+    except Exception as exc:  # noqa: BLE001 - devolve erro pro modelo, não derruba o turno
+        return {"erro": f"Falha ao cadastrar pessoa: {exc}"}
+    return {"status": "ok", "nome": nome}
 
 
 async def listar_participantes(jid: str) -> dict:

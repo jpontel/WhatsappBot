@@ -4,6 +4,7 @@ import { whatsappService } from "../services/whatsapp.service.js";
 import { youtubeService } from "../services/youtube.service.js";
 import { audioService } from "../services/audio.service.js";
 import { LastfmService } from "../services/lastfm.service.js";
+import { Canvas } from "../utils/canvas.js";
 import { Sticker, StickerTypes } from 'wa-sticker-formatter';
 import express, { type Request, type Response } from 'express';
 import fs from 'node:fs';
@@ -12,8 +13,8 @@ import { ENV } from "../config/env.js";
 import { z } from 'zod';
 import { agendamentoRepository, mesmoSolicitante } from "../repository/agendamento.repository.js";
 import { schedulerService } from "../services/scheduler.service.js";
-import { buscarPorNome, buscarPorNumero, buscarPorLid, type Pessoa } from "../repository/pessoa.repository.js";
-import { resolverNumero, resolverLid } from "../core/identidade.js";
+import { buscarPorNome, buscarPorNumero, buscarPorLid, registrarPessoa, type Pessoa } from "../repository/pessoa.repository.js";
+import { resolverNumero, resolverLid, normalizarNonoDigito } from "../core/identidade.js";
 import { isJidGroup, isLidUser, isPnUser, jidNormalizedUser } from "@whiskeysockets/baileys";
 
 const lastfmService = new LastfmService();
@@ -500,6 +501,58 @@ export async function enviarMencaoHandler(
     }
 }
 
+export async function cadastrarPessoaHandler(
+    { nome, numero }: { nome: string; numero: string }
+): Promise<McpToolResult> {
+    try {
+        const nomeLimpo = (nome ?? '').trim();
+        if (!nomeLimpo) return fail('❌ Nome vazio — informe o nome da pessoa.');
+
+        // Número canônico: só dígitos → remove o 9º dígito BR → <digitos>@s.whatsapp.net.
+        // Precisa casar EXATAMENTE com o que buscarPorNumero (usado no /p) consulta depois.
+        const digitos = (numero ?? '').replace(/\D/g, '');
+        if (!digitos) return fail('❌ Número vazio ou sem dígitos.');
+
+        const numeroCanonico = jidNormalizedUser(`${normalizarNonoDigito(digitos)}@s.whatsapp.net`);
+
+        // Best-effort: tenta descobrir o LID (pode vir null — tudo bem).
+        let lid: string | null = null;
+        try {
+            const sock = whatsappService.recuperarInstancia();
+            lid = await resolverLid(sock, numeroCanonico);
+        } catch {
+            // Sem socket vivo / sem mapeamento → segue sem LID.
+        }
+
+        registrarPessoa({ numero: numeroCanonico, lid, nome: nomeLimpo, cadastradoPor: null });
+
+        return ok(JSON.stringify({ status: 'ok', nome: nomeLimpo, numero: numeroCanonico }));
+    } catch (error) {
+        return fail(`❌ Falha ao cadastrar pessoa: ${(error as Error).message}`);
+    }
+}
+
+export async function gerarEEnviarSemaninhaHandler(
+    { usuario, jid }: { usuario: string; jid: string }
+): Promise<McpToolResult> {
+    try {
+        const sock = whatsappService.recuperarInstancia();
+
+        const albums = await lastfmService.recuperarAlbumsMaisOuvidosSemana(usuario);
+        const semaninha = await new Canvas().criarCanvas(albums);
+
+        await sock.sendMessage(jid, {
+            image: semaninha,
+            mimetype: 'image/jpeg',
+            caption: `Semaninha do ${usuario}`,
+        });
+
+        return ok(JSON.stringify({ status: 'ok' }));
+    } catch (error) {
+        return fail(`❌ Falha ao gerar/enviar semaninha: ${(error as Error).message}`);
+    }
+}
+
 function inicializarServidor() {
     const server = new McpServer({
         name: 'Megatron-Whatsapp-Bridge',
@@ -715,6 +768,34 @@ function inicializarServidor() {
             }
         },
         enviarMencaoHandler
+    );
+
+    server.registerTool(
+        "cadastrar_pessoa",
+        {
+            description: "Cadastra (ou atualiza) uma pessoa na agenda do bot a partir do nome e do número cru. " +
+                "Use quando pedirem para cadastrar/registrar alguém informando o telefone. O número é normalizado " +
+                "para a forma canônica do projeto (para casar com buscas futuras). A permissão (quem pode cadastrar) " +
+                "é controlada pelo agente — esta tool apenas grava.",
+            inputSchema: {
+                nome: z.string().describe("Nome da pessoa a cadastrar."),
+                numero: z.string().describe("Número em qualquer formato: +55 41 99186-2566, REMOVIDO_TEL, etc.")
+            }
+        },
+        cadastrarPessoaHandler
+    );
+
+    server.registerTool(
+        "gerar_e_enviar_semaninha",
+        {
+            description: "Gera a colagem 5×5 dos álbuns mais ouvidos da semana no Last.fm de um usuário e ENVIA a imagem para o JID. " +
+                "Use para 'semaninha do <usuario>'.",
+            inputSchema: {
+                usuario: z.string().describe("Usuário do Last.fm."),
+                jid: z.string().describe("JID do destino (ex: 5547999999999@s.whatsapp.net ou grupo @g.us).")
+            }
+        },
+        gerarEEnviarSemaninhaHandler
     );
 
     return server;
