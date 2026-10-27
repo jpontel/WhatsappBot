@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y \
 # Cria o diretório de trabalho
 WORKDIR /app
 
+# Atualiza o npm: o npm 10.8.2 que vem no node:20-slim atual tem um bug no arborist
+# ("Cannot read properties of null (reading 'edgesOut')") que quebra o `npm install`
+# com o conjunto de deps deste projeto. O npm 11 resolve a árvore normalmente.
+RUN npm install -g npm@11
+
 # Copia só o package.json (o package-lock.json é legado da era pré-pnpm e está
 # dessincronizado — deixar o npm resolver a árvore evita "Invalid Version" no dedup)
 COPY package.json ./

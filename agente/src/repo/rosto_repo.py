@@ -256,6 +256,23 @@ def _fotos_de_sync(numeros: list[str]) -> list[dict]:
     ]
 
 
+def _numeros_com_rosto_sync(numeros: list[str]) -> set[str]:
+    """Dos números pedidos, quais TÊM foto de rosto cadastrada (parte-de-usuário).
+
+    Base do campo `tem_rosto` do `buscar_contato`: só lê a coluna `numero` (não
+    carrega BLOBs) e usa a MESMA regra de match do `_fotos_de_sync` — ter foto é
+    o pré-requisito de `gerar_e_enviar_imagem_com_pessoas`. Devolve o conjunto de
+    partes-de-usuário (sem `@server`) que têm foto.
+    """
+    alvo = {normalizar_numero(n) for n in (numeros or []) if normalizar_numero(n)}
+    if not alvo:
+        return set()
+    with _lock:
+        conn = _conexao()
+        todos = conn.execute("SELECT numero FROM rostos_fotos").fetchall()
+    return {normalizar_numero(r[0]) for r in todos if normalizar_numero(r[0]) in alvo}
+
+
 def _contar_sync() -> int:
     """Total de rostos cadastrados (todas as pessoas) — para o early-out."""
     with _lock:
@@ -290,6 +307,10 @@ async def salvar_foto_rosto(numero: str, nome: str, imagem: dict) -> dict:
 
 async def fotos_de(numeros: list[str]) -> list[dict]:
     return await asyncio.to_thread(_fotos_de_sync, numeros)
+
+
+async def numeros_com_rosto(numeros: list[str]) -> set[str]:
+    return await asyncio.to_thread(_numeros_com_rosto_sync, numeros)
 
 
 async def contar() -> int:

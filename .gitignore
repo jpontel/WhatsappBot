@@ -7,5 +7,8 @@
 # Caches de ferramentas na raiz
 .ruff_cache/
 
+# Chave SSH secundária da Linode — NUNCA versionar (contém chave privada)
+linode_secondary/
+
 .DS_Store
 *.log

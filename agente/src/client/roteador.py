@@ -54,11 +54,14 @@ _TOOLS_POR_ROTA: dict[str, frozenset[str]] = {
         "buscar_e_enviar_imagem", "gerar_e_enviar_sticker",
         "enviar_sticker_gerado", "buscar_e_enviar_sticker",
         "editar_e_enviar_imagem", "editar_e_enviar_sticker", "buscar_contato",
+        "gerar_e_enviar_semaninha", "converter_em_sticker",
     }),
     "edicao_visual": frozenset({
         "editar_e_enviar_imagem", "editar_e_enviar_sticker",
         "gerar_e_enviar_imagem", "gerar_e_enviar_sticker",
+        "converter_em_sticker",
     }),
+    "cadastro": frozenset({"cadastrar_pessoa", "buscar_contato"}),
     "audio": frozenset({"gerar_e_enviar_audio"}),
     "musica": frozenset({"gerar_e_enviar_musica"}),
     "lembrete": frozenset({
@@ -104,6 +107,9 @@ _RE_LEMBRETE = re.compile(r"\b(me lembr\w*|lembr[ae] de|me avis\w*|agend\w*|todo
 _RE_MEMORIA = re.compile(r"\b(anota\w*|anote|lembra que eu|guarda que|memoriz\w*|salva que|registra que|nao esquec\w* que|grava que)\b")
 _RE_ROSTO_PESSOA = re.compile(r"\b(esse|essa|este|esta)\s+(e|eh)\s+[oa]\b")
 _RE_ROSTO_KW = re.compile(r"\b(cadastr\w*\s+(o|a|esse|essa|rosto)|rosto d|reconhec\w*)\b")
+# Cadastro de pessoa pelo número (sem imagem): "cadastra o fulano <número>",
+# "registra esse número como Maria". Só admin (checado em decidir_rota).
+_RE_CADASTRO = re.compile(r"\b(cadastr\w*|registr\w*)\b")
 _RE_BUSCA = re.compile(r"\b(pesquis\w*|procur\w*|busca na web|busca no|o que e|o que foi|quem e|quem foi|noticia\w*|preco de|cotacao|quanto custa|artigo\w*|paper\w*|estudo\w* sobre|cientific\w*)\b|https?://")
 # Gatilho da regra condicional "bettdopo"/trovão — vale em QUALQUER rota (não é
 # uma rota, é um fragmento extra de instrução injetado quando a msg menciona isso).
@@ -125,6 +131,11 @@ def decidir_rota(
     # 1) Cadastro de rosto — só admin, com imagem e marcador explícito.
     if tem_imagem and eh_admin and (_RE_ROSTO_PESSOA.search(m) or _RE_ROSTO_KW.search(m)):
         return "rosto"
+
+    # 1.1) Cadastro de pessoa pelo número — só admin, SEM imagem (com imagem, o
+    # "cadastra" cai na regra de rosto acima). Verbo de cadastrar/registrar.
+    if eh_admin and (not tem_imagem) and _RE_CADASTRO.search(m):
+        return "cadastro"
 
     # 2) Edição da imagem do turno (imagem presente + verbo de edição).
     if tem_imagem and _RE_EDIT.search(m):
