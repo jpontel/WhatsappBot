@@ -9,9 +9,10 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException
 from google.genai import types
 
-from repo import memoria_repo, rosto_repo
+from repo import memoria_repo, pendencias_repo, rosto_repo
 from shared import request_context
 from shared.mcp_client import chamar_mcp
+from shared.session_locks import lock_da_sessao
 from client import roteador
 from client.root_agent import runner
 from client.session import APP_NAME, session_service
@@ -26,6 +27,9 @@ router = APIRouter()
 _MSG_SEM_CREDITO = "estourou os tokens!!!! 😵‍💫"
 _MSG_SOBRECARGA = "tô meio sobrecarregada agora 😮‍💨 tenta de novo daqui a pouco que eu te respondo 🥲"
 _MSG_TOOL_INEXISTENTE = "não encontrei a ferramenta necessária para atender esse pedido. esclarece melhor o que tu quer ou cai fora! bjokas 💋"
+# Falha transiente/desconhecida: marcamos a conversa PENDENTE e avisamos UMA vez
+# que vamos re-tentar sozinhos (a rotina de retry cuida do resto).
+_MSG_PENDENTE = "perai, rolou alguma coisa aqui no meu sistema, vou dar uma olhada aqui e já retorno :p"
 
 
 def _mensagem_amigavel_para(exc: Exception) -> str | None:
@@ -63,17 +67,6 @@ async def _reagir(req: ChatRequest, emoji: str) -> None:
         })
     except Exception:  # noqa: BLE001
         logger.warning("Falha ao reagir %r em %s", emoji, req.chatId, exc_info=True)
-
-# A sessão do ADK é por chatId (= JID). Dois /chat simultâneos no mesmo chat
-# (comum em grupo) colidiam na sessão -> "session has been modified in storage".
-# Serializamos as requisições por chatId com um lock dedicado.
-_session_locks: dict[str, asyncio.Lock] = {}
-
-
-def _lock_da_sessao(chat_id: str) -> asyncio.Lock:
-    # setdefault não dá await -> atômico no loop asyncio (sem race ao criar).
-    return _session_locks.setdefault(chat_id, asyncio.Lock())
-
 
 def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str = "") -> types.Content:
     rem = req.remetente
@@ -202,7 +195,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
     rota: str | None = None
     try:
         # Serializa por chatId: uma requisição por sessão de cada vez.
-        async with _lock_da_sessao(req.chatId):
+        async with lock_da_sessao(req.chatId):
             await _garantir_sessao(req.chatId)
 
             # Memória de texto e reconhecimento facial são independentes: rodam
@@ -290,10 +283,26 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     except Exception as exc:
         logger.exception("Falha no /chat para %s", req.chatId)
-        # Erros de capacidade/billing da IA não são bug nosso: respondemos um
-        # texto amigável (200) em vez de 500 — o bot manda essa mensagem ao
-        # usuário no lugar de só reagir com ❌.
-        amigavel = _mensagem_amigavel_para(exc)
-        if amigavel is not None:
-            return ChatResponse(texto=amigavel, tools_acionadas=[])
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        # Tool alucinada pelo LLM (nome inexistente) NÃO é transiente nem se
+        # resolve re-tentando: pede pra repetir (comportamento atual), sem
+        # virar pendente.
+        msg = str(exc).lower()
+        if "not found" in msg and "tool" in msg:
+            return ChatResponse(texto=_MSG_TOOL_INEXISTENTE, tools_acionadas=[])
+        # Todo o resto (sobrecarga 429/503/overload/resource_exhausted/unavailable,
+        # billing/credits e desconhecido) vira PENDENTE: gravamos a conversa e uma
+        # rotina re-tenta sozinha. Avisamos o "perai" só na 1ª vez (dedup por chat);
+        # se já havia pendente, texto=None (o bot não reenvia nada).
+        try:
+            criou = await pendencias_repo.marcar_pendente(
+                chat_id=req.chatId,
+                msg_key=json.dumps(req.msgKey.model_dump(exclude_none=True), ensure_ascii=False),
+                mensagem=req.mensagem,
+                contexto=json.dumps([m.model_dump() for m in req.contexto], ensure_ascii=False),
+                erro=repr(exc),
+            )
+        except Exception as exc_pend:  # noqa: BLE001
+            # Nem a captura funcionou: degrada pro 500 clássico (bot reage ❌).
+            logger.exception("Falha ao marcar pendência de %s", req.chatId)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc_pend
+        return ChatResponse(texto=(_MSG_PENDENTE if criou else None), pendente=True)

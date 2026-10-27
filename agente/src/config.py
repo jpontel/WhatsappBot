@@ -124,6 +124,14 @@ class Settings(BaseSettings):
     musica_rate_max: int = 5                # máx. de músicas na janela
     musica_rate_janela_seg: int = 300       # janela em segundos (5 min)
 
+    # Auto-recuperação de turnos do /chat que falharam de forma transiente. A
+    # conversa vira PENDENTE no banco e uma rotina re-tenta de tempos em tempos.
+    pendencia_intervalo_seg: int = 600      # intervalo entre varreduras da rotina (10 min)
+    pendencia_max_tentativas: int = 3       # após isso, desiste e avisa o admin
+    pendencia_contexto_max: int = 10        # teto de mensagens de contexto reinjetadas no retry
+    pendencia_lote_max: int = 50            # máx. de pendências processadas por varredura
+    admin_jid: str = ""                     # JID/numero do admin p/ avisos (ex.: desistência) — lido de ADMIN_JID
+
     host: str = "0.0.0.0"
     port: int = 8000
 

@@ -60,3 +60,6 @@ class ChatResponse(BaseModel):
     # Rota escolhida pelo roteador determinístico (v0) — telemetria/observabilidade.
     # None = fallback (nenhuma regra casou; LLM recebeu todas as tools).
     rota: str | None = None
+    # Soft-fail já tratado: o turno falhou mas viramos a conversa PENDENTE e uma
+    # rotina re-tenta sozinha — o bot NÃO reage com ❌ (não é erro pro usuário).
+    pendente: bool = False
