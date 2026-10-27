@@ -150,12 +150,10 @@ export async function enviarMensagem(
             console.warn('Acionado, mas o comando /p não está disponível.');
             continue;
         }
-        // Sem texto útil E sem mídia: só avisa (caso de @menção vazia). Com mídia
-        // (figurinha/foto sozinha), segue pro /p — o agente a "vê" e comenta.
-        if (!conteudoSemMencao && !temMidia) {
-            await sock.sendMessage(jid, { text: 'oi! me chama junto com a pergunta que eu te respondo 💅' });
-            continue;
-        }
+        // Mesmo SEM texto (só @menção, ou @menção respondendo a uma foto): segue
+        // pro /p. O agente responde com base no [contexto-recente] (últimas msgs)
+        // + a imagem/mídia em que foi mencionado. Não existe mais o atalho
+        // "me chama junto com a pergunta" — mencionar já basta pra ela responder.
         await cmdP.execute({ sock, conteudo: conteudoSemMencao, usuarioJid: jid, msg, remetenteJid, ehAdmin });
     }
 }
