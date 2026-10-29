@@ -1,5 +1,13 @@
 import db from '../config/database.js';
 
+// O SQLite não remove acentos no LOWER/LIKE, então uma busca por "alinecheirapo"
+// não casava com o nome cadastrado "alineCheiraPó". Registramos uma função SQL
+// própria que tira os diacríticos (NFD + remoção das marcas de combinação) para
+// comparar nomes sem acento dos dois lados da query.
+const semAcento = (texto: unknown): string =>
+    (texto == null ? '' : String(texto)).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+db.function('sem_acento', { deterministic: true }, semAcento);
+
 export interface Pessoa {
     id: number;
     numero: string;
@@ -29,7 +37,7 @@ const stmtBuscarPorNumero = db.prepare(`
 `);
 
 const stmtBuscarPorNome = db.prepare(`
-    SELECT * FROM pessoas WHERE LOWER(nome) LIKE LOWER(?) ORDER BY nome
+    SELECT * FROM pessoas WHERE sem_acento(LOWER(nome)) LIKE sem_acento(LOWER(?)) ORDER BY nome
 `);
 
 const stmtBuscarPorLid = db.prepare(`
