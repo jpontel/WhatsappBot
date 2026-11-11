@@ -12,3 +12,6 @@ linode_secondary/
 
 .DS_Store
 *.log
+
+## Token de conexão com o repo do github
+docs/personal-token-github.md
