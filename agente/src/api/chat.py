@@ -14,6 +14,7 @@ from shared import request_context
 from shared.mcp_client import chamar_mcp
 from shared.session_locks import lock_da_sessao
 from client import roteador
+from client.classificador import Classificacao, classificar_turno
 from client.root_agent import runner
 from client.session import APP_NAME, session_service
 from config import settings
@@ -68,7 +69,12 @@ async def _reagir(req: ChatRequest, emoji: str) -> None:
     except Exception:  # noqa: BLE001
         logger.warning("Falha ao reagir %r em %s", emoji, req.chatId, exc_info=True)
 
-def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str = "") -> types.Content:
+def _montar_conteudo(
+    req: ChatRequest,
+    memoria_texto: str = "",
+    rosto_texto: str = "",
+    classif: Classificacao | None = None,
+) -> types.Content:
     rem = req.remetente
     remetente_nome = (rem.nome if rem and rem.nome else "desconhecido")
     remetente_numero = (rem.numero if rem and rem.numero else "?")
@@ -77,8 +83,15 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
 
     data_hora_atual = datetime.now(ZoneInfo(settings.timezone)).isoformat()
 
-    # Tempero de tom sorteado por turno: varia o registro da resposta (anti-repetição).
-    estilo_da_vez = random.choice(settings.estilos_resposta)
+    # Tempero de tom do turno: o classificador decide o TOM (serio/neutro/leve) e o
+    # estilo é sorteado DENTRO do balde daquele tom — mantém a variedade, mas no
+    # registro certo (não solta deboche/malícia numa conversa séria). Sem
+    # classificação (fallback), usa o pool completo. A complexidade vira a
+    # `dica_tamanho` abaixo.
+    tom = classif.tom if classif else "neutro"
+    balde = settings.estilos_por_tom.get(tom) or settings.estilos_resposta
+    estilo_da_vez = random.choice(balde)
+    dica_tamanho = classif.dica_tamanho() if classif else "médio"
 
     bloco_citacao = ""
     if req.citacao and req.citacao.texto:
@@ -111,6 +124,7 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
         f"eh_admin: {eh_admin}\n"
         f"data_hora_atual: {data_hora_atual}\n"
         f"estilo_da_vez: {estilo_da_vez}\n"
+        f"dica_tamanho: {dica_tamanho}\n"
         f"tem_imagem: {'sim' if tem_imagem else 'nao'}\n"
         f"{linha_rosto}"
         f"{bloco_citacao}"
@@ -198,13 +212,16 @@ async def chat(req: ChatRequest) -> ChatResponse:
         async with lock_da_sessao(req.chatId):
             await _garantir_sessao(req.chatId)
 
-            # Memória de texto e reconhecimento facial são independentes: rodam
-            # em paralelo (cada um trata o próprio erro e devolve "" se falhar).
-            memoria_texto, rosto_texto = await asyncio.gather(
+            # Memória, reconhecimento facial e classificação de tom/complexidade
+            # são independentes: rodam em PARALELO (cada um trata o próprio erro).
+            # O classificador entra aqui de propósito — sua latência fica "escondida"
+            # atrás dos outros, que já precisam terminar antes de montar o prompt.
+            memoria_texto, rosto_texto, classif = await asyncio.gather(
                 _recuperar_memorias(req),
                 _reconhecer_rosto(req),
+                classificar_turno(req),
             )
-            conteudo = _montar_conteudo(req, memoria_texto, rosto_texto)
+            conteudo = _montar_conteudo(req, memoria_texto, rosto_texto, classif)
 
             texto_final: str | None = None
             tools_acionadas: list[str] = []

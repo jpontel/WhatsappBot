@@ -47,6 +47,44 @@ class Settings(BaseSettings):
         "provocação travessa/flerte zoeiro",
     ]
 
+    # --- Classificador de tom/complexidade (sensor por LLM leve) ----------------
+    # Um classificador barato lê a mensagem + contexto curto e devolve {tom,
+    # complexidade}. O `tom` escolhe o BALDE de estilos (gate) e a `complexidade`
+    # vira uma dica de tamanho. Mantém a VARIEDADE (ainda sorteia dentro do balde),
+    # mas no registro certo. Ver docs/PLANO-classificador-tom-complexidade.md.
+    classificador_ativo: bool = True
+    # Modelo do classificador: o mais barato/rápido (tarefa trivial). Separado do
+    # modelo da resposta de propósito.
+    gemini_model_classificador: str = "gemini-3.5-flash-lite"
+    # Teto de mensagens de contexto enviadas AO classificador (bem menor que o da
+    # resposta — tom/complexidade se definem pelo turno atual + vizinhança imediata).
+    classificador_contexto_max: int = 3
+    # Timeout da chamada do classificador; ao estourar, cai no fallback (neutro).
+    classificador_timeout_seg: float = 5.0
+
+    # Baldes de estilo por tom (gate). SÃO APENAS os 9 `estilos_resposta` atuais
+    # reparticionados — nenhum estilo novo. O balde `serio` usa os MENOS agressivos
+    # como stopgap (não há registro sério no pool; melhoria futura é só preencher
+    # este balde com estilos sóbrios, sem mexer no mecanismo).
+    estilos_por_tom: dict[str, list[str]] = {
+        "leve": [
+            "deboche seco e curto",
+            "sarcasmo afiado e afrontoso",
+            "empolgação debochada",
+            "frieza cortante",
+            "malícia de duplo sentido",
+            "provocação travessa/flerte zoeiro",
+        ],
+        "neutro": [
+            "ironia blasé/preguiçosa",
+            "deboche carinhoso",
+        ],
+        "serio": [
+            "deboche carinhoso",
+            "fingindo paciência com a pergunta",
+        ],
+    }
+
     tavily_api_key: str
     tavily_search_url: str = "https://api.tavily.com/search"
 
