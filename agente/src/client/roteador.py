@@ -76,6 +76,9 @@ _TOOLS_POR_ROTA: dict[str, frozenset[str]] = {
     # Imagem no turno sem outra intenção: o modelo só "olha" e comenta — nenhuma
     # tool além da base. Maior economia de schema.
     "visao": frozenset(),
+    # Guia de uso ("como você funciona"): é só EXPLICAR capacidades, não executar
+    # nada → nenhuma tool. O catálogo vem no fragmento INSTRUCAO_POR_ROTA["ajuda"].
+    "ajuda": frozenset(),
 }
 
 
@@ -115,6 +118,26 @@ _RE_BUSCA = re.compile(r"\b(pesquis\w*|procur\w*|busca na web|busca no|o que e|o
 # uma rota, é um fragmento extra de instrução injetado quando a msg menciona isso).
 _RE_BETTDOPO = re.compile(r"\b(bettdopo|bet do po|trov\w*)\b")
 
+# Meta-pergunta sobre o FUNCIONAMENTO do bot → rota "ajuda" (guia de uso). Cobre o
+# geral ("como você funciona", "o que você faz", "quais seus comandos") e o
+# específico/cherry-pick ("você sabe salvar meu rosto?", "você consegue criar
+# imagem?"). O caso específico exige um verbo de capacidade depois de "sabe/
+# consegue/pode", para NÃO confundir com perguntas comuns ("você sabe que horas são").
+_RE_AJUDA = re.compile(
+    r"como (voce|vc|tu) (funciona|usa|uso)"
+    r"|como funciona (voce|vc|o bot|a lulad\w*|isso|voce ai)"
+    r"|o que (voce|vc|tu) (faz|sabe fazer|consegue fazer|pode fazer|faz aqui|faz de)"
+    r"|pra que (voce|vc|tu) serve|serve pra que"
+    r"|quais( sao)? (as |os |suas |seus )?(funcoe\w*|funcionalidade\w*|ferramenta\w*|capacidade\w*|comando\w*)"
+    r"|(seus|teus) comandos|lista de (comando\w*|funcoe\w*|funcionalidade\w*)"
+    r"|me ajuda a (usar|te usar)|como (te usar|usar voce|usar vc)|manual de uso"
+    r"|(voce|vc|tu) (sabe|consegue|conseguem|pode) "
+    r"(fazer|criar|gerar|gera|salvar|salva|cadastrar|cadastra|mandar|manda|enviar|envia"
+    r"|editar|edita|baixar|baixa|tocar|toca|cantar|canta|compor|desenhar|desenha|buscar"
+    r"|busca|pesquisar|lembrar|lembra|agendar|agenda|reconhecer|transformar|converter|responder)"
+    r"|(voce|vc|tu) tem como "
+)
+
 
 def decidir_rota(
     mensagem: str,
@@ -127,6 +150,12 @@ def decidir_rota(
     Ordem importa: do sinal mais específico ao mais genérico.
     """
     m = _norm(mensagem)
+
+    # 0) Guia de uso — meta-pergunta sobre o funcionamento do bot. Vem ANTES das
+    # rotas de ação para que "você sabe criar imagem?" seja EXPLICAÇÃO (ajuda), não
+    # execução (geracao_visual). Só explica, não dispara tool.
+    if _RE_AJUDA.search(m):
+        return "ajuda"
 
     # 1) Cadastro de rosto — só admin, com imagem e marcador explícito.
     if tem_imagem and eh_admin and (_RE_ROSTO_PESSOA.search(m) or _RE_ROSTO_KW.search(m)):
@@ -183,11 +212,11 @@ def tools_da_rota(rota: str | None) -> frozenset[str] | None:
 def eh_rota_de_acao(rota: str | None) -> bool:
     """True se a rota implica EXECUTAR algo (gera/envia mídia, agenda, memoriza,
     reconhece rosto, busca...) — i.e., o usuário PEDIU algo para o bot FAZER.
-    `None` (conversa/fallback) e `visao` (só olhar/comentar uma imagem) NÃO são
-    ação. Usado para decidir se o turno merece reação (⏳/💅) no WhatsApp:
-    conversa normal não ganha reação nenhuma.
+    `None` (conversa/fallback), `visao` (só olhar/comentar uma imagem) e `ajuda`
+    (só explicar o funcionamento) NÃO são ação. Usado para decidir se o turno merece
+    reação (⏳/💅) no WhatsApp: conversa normal não ganha reação nenhuma.
     """
-    return bool(rota) and rota != "visao"
+    return bool(rota) and rota not in {"visao", "ajuda"}
 
 
 def filtrar_tools(callback_context, llm_request) -> None:  # noqa: ANN001 - assinatura ADK

@@ -126,6 +126,37 @@ FRAGMENTO_LOTE = """\
 # Chaves espelham o roteador.py.
 # ---------------------------------------------------------------------------
 INSTRUCAO_POR_ROTA: dict[str, str] = {
+    "ajuda": """\
+[GUIA DE USO — responder sobre o seu funcionamento]:
+A pessoa está perguntando o que você faz / como usar. Responda na SUA persona, curto e organizado. DUAS situações:
+- Pergunta GERAL ("como você funciona?", "o que você faz?", "seus comandos") → liste as capacidades do NÍVEL dela (veja o filtro abaixo). Pode agrupar por tema, sem virar textão.
+- Pergunta ESPECÍFICA ("você sabe salvar meu rosto?", "como crio um lembrete?") → explique SÓ aquela função (o "como usar"), sem despejar a lista toda.
+
+FILTRO POR NÍVEL (obrigatório): olhe `eh_admin` no [contexto-sistema].
+- `eh_admin=nao` → mostre SÓ as funções COMUNS. NÃO cite nem ofereça as de ADMIN; se perguntarem por uma delas, diga com leveza que isso é só o admin que faz.
+- `eh_admin=sim` → pode mostrar tudo (comuns + admin).
+
+CAPACIDADES COMUNS (todos):
+- Conversa, curiosidades e dúvidas no texto; pesquisa na web e em artigos científicos.
+- Imagens: criar do zero, achar na web, editar uma foto enviada, e transformar em figurinha; também cria figurinhas. (Só faço quando você PEDE.)
+- Áudio (nota de voz) e música (um clipinho de ~30s).
+- Lembretes SEUS: criar ("me lembra amanhã às 8h de..."), listar e cancelar/editar os seus; dá pra marcar como urgente.
+- Memória: eu guardo fatos sobre você e uso nas conversas; você gerencia a SUA memória (pra cadastrados).
+- Semaninha / mais ouvidas do Last.fm.
+- Mencionar alguém (@) e listar quem está no grupo.
+- Baixar música/vídeo de link do YouTube.
+- Eu respondo quando me mencionam, quando respondem (reply) uma mensagem minha, e entro sozinha se alguém cadastrado fica no vácuo num grupo habilitado.
+- Reconheço rostos de pessoas cadastradas nas fotos (automático).
+
+CAPACIDADES SÓ DE ADMIN (além das comuns):
+- Cadastrar pessoas: `/cadastrar <nome> @menção` (ou pelo número); listar os cadastrados com `/cadastrar -listar`.
+- Cadastrar/corrigir rostos: me mandar a FOTO da pessoa e dizer "esse é o fulano" (a pessoa precisa estar cadastrada antes).
+- Gerenciar a memória de QUALQUER pessoa.
+- `/vacuo on|off`: liga/desliga o anti-vácuo naquele grupo.
+- Lembretes para/de OUTRAS pessoas e mexer em qualquer lembrete do chat.
+
+Não exponha nomes internos de ferramentas nem detalhes técnicos — fale no jeitão de "eu sei fazer X, é só você...". Não invente função que não está nesta lista.
+""",
     "busca": """\
 [USO DE TOOLS — BUSCA]:
 - `buscar_web(query)`: pesquisa na internet. Use SEMPRE que a pergunta depender de fatos atuais/recentes (notícias, cotações, lançamentos, dados que mudam) ou de algo que você não saiba com certeza. Baseie a resposta no `resumo`/`resultados` retornados.
