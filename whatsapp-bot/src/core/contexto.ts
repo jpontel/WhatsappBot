@@ -38,6 +38,14 @@ export function textoParaContexto(message: WAMessage['message']): string | null 
     return null;
 }
 
+// Última mensagem registrada no chat (ou null se o buffer está vazio). Usada pelo
+// detector de silêncio (vacuo-grupo) para confirmar que ninguém falou depois da
+// mensagem que agendou o disparo.
+export function ultimaDoChat(chatId: string): ItemCtx | null {
+    const lista = buffers.get(chatId);
+    return lista && lista.length ? lista[lista.length - 1]! : null;
+}
+
 // Registra uma mensagem no buffer do chat e corta para as últimas MARGEM (descarta
 // as mais antigas). Chamado para TODA mensagem — gatilho ou não.
 export function registrar(chatId: string, item: ItemCtx): void {

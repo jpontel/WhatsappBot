@@ -4,9 +4,10 @@ import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
 import carregarComandos from './comandos.js';
 import { agendamentoRepository } from '../repository/agendamento.repository.js';
 import { schedulerService } from '../services/scheduler.service.js';
-import { resolverNumeroRemetente, ehAdminPorJid, botFoiMencionado } from './identidade.js';
+import { resolverNumeroRemetente, ehAdminPorJid, botFoiMencionado, respondeuAoBot } from './identidade.js';
 import { buscarPorNumero } from '../repository/pessoa.repository.js';
 import { registrar, textoParaContexto } from './contexto.js';
+import { observar as observarVacuoGrupo } from './vacuo-grupo.js';
 
 // Confirmação de lembretes URGENTES: qualquer mensagem do solicitante naquele
 // chat encerra a cobrança (nag). Ignora as próprias mensagens de lembrete do bot
@@ -123,7 +124,24 @@ export async function enviarMensagem(
             ehDmCadastrado = ehAdminPorJid(numeroDm) || (!!numeroDm && !!buscarPorNumero(numeroDm));
         }
 
-        if (!ehComando && !mencionouBot && !ehDmCadastrado) continue;
+        // Reply a uma mensagem do PRÓPRIO bot: responder (quote) já é intenção de
+        // falar com ele — dispara sem precisar de @menção. Vale em grupo e DM, p/
+        // QUALQUER pessoa (cadastrada ou não); ecos fromMe ficam de fora. Reply de
+        // figurinha/foto conta igual (respondeuAoBot independe de ter texto).
+        const respondeuBot = !ehComando && !mencionouBot && !msg.key.fromMe && await respondeuAoBot(sock, msg);
+
+        // Anti-vácuo de grupo: observa TODA msg de grupo (gatilho ou não) para
+        // (re)agendar ou cancelar o disparo por silêncio. Roda ANTES do descarte
+        // abaixo porque as mensagens que mais importam — a conversa que NÃO aciona
+        // o bot — saem no `continue`. Em grupo não habilitado é praticamente no-op.
+        if (isJidGroup(jid)) {
+            await observarVacuoGrupo(sock, msg, jid, {
+                ehGatilho: ehComando || mencionouBot || ehDmCadastrado || respondeuBot,
+                acionar: comandos.get('/p')?.execute,
+            });
+        }
+
+        if (!ehComando && !mencionouBot && !ehDmCadastrado && !respondeuBot) continue;
 
         const remetenteNumero = await resolverNumeroRemetente(sock, msg);
         const ehAdmin = ehAdminPorJid(remetenteNumero);

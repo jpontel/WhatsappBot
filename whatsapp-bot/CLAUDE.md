@@ -79,7 +79,7 @@ O consumidor atual é o projeto `agente/` (na raiz do repo, fora deste diretóri
 
 ### Ambiente
 
-O `.env` é carregado por `src/config/env.ts` — importe esse arquivo primeiro (e apenas via `import './config/env.js'` no topo de `index.ts`) para que `process.env` esteja populado antes que qualquer construtor de serviço o leia. Constantes centralizadas ficam no objeto `ENV` exportado; prefira adicionar variáveis novas lá em vez de ler `process.env` direto. Chaves em uso: `TELEFONE_CELULAR`, `GEMINI_API_KEY`, `LASTFM_API_KEY`/`LASTFM_API_URL`/`LASTFM_SHARED_SECRET`, `CRAFT_API_URL`, `HEAVY_API_URL`/`HEAVY_API_KEY`, `IS_DESENV`, `CHROME_FOLDER_MACOS`/`CHROME_FOLDER_LINUX`, `MCP_PORT` (default 3001), `AGENT_URL` (default `http://localhost:8000` — URL base do projeto `agente/`, usada pelo `/p`).
+O `.env` é carregado por `src/config/env.ts` — importe esse arquivo primeiro (e apenas via `import './config/env.js'` no topo de `index.ts`) para que `process.env` esteja populado antes que qualquer construtor de serviço o leia. Constantes centralizadas ficam no objeto `ENV` exportado; prefira adicionar variáveis novas lá em vez de ler `process.env` direto. Chaves em uso: `TELEFONE_CELULAR`, `GEMINI_API_KEY`, `LASTFM_API_KEY`/`LASTFM_API_URL`/`LASTFM_SHARED_SECRET`, `CRAFT_API_URL`, `HEAVY_API_URL`/`HEAVY_API_KEY`, `IS_DESENV`, `CHROME_FOLDER_MACOS`/`CHROME_FOLDER_LINUX`, `MCP_PORT` (default 3001), `AGENT_URL` (default `http://localhost:8000` — URL base do projeto `agente/`, usada pelo `/p`), `VACUO_GRUPO_ATIVO` (default `true`; só desliga com `false`) e `VACUO_GRUPO_DELAY_MS` (default `300000` = 5 min) — anti-vácuo de grupo (opt-in por grupo via `/vacuo on|off`).
 
 ## Convenções
 
