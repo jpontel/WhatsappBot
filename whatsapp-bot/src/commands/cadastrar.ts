@@ -1,10 +1,10 @@
 import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
 import { resolverNumero, resolverNumeroRemetente } from '../core/identidade.js';
-import { registrarPessoa } from '../repository/pessoa.repository.js';
+import { registrarPessoa, listarTodos } from '../repository/pessoa.repository.js';
 
 export default {
     name: '/cadastrar',
-    description: 'Cadastra uma pessoa do grupo: /cadastrar <nome> @menção (só o admin)',
+    description: 'Cadastra uma pessoa: /cadastrar <nome> @menção · lista: /cadastrar -listar (só o admin)',
 
     execute: async (dto: ComandoExecutarDto) => {
         const { sock, msg, usuarioJid, conteudo, ehAdmin } = dto;
@@ -17,6 +17,21 @@ export default {
         if (!ehAdmin) {
             await reagir('❌');
             return await sock.sendMessage(usuarioJid, { text: 'Só o admin pode cadastrar gente 😤' });
+        }
+
+        // /cadastrar -listar → lista todos os cadastrados (não é por grupo: o
+        // cadastro é global por número; o grupo onde foi feito não é guardado).
+        if (conteudo.trim().toLowerCase() === '-listar') {
+            const todos = listarTodos();
+            if (!todos.length) {
+                return await sock.sendMessage(usuarioJid, { text: 'Ninguém cadastrado ainda 🤷' });
+            }
+            const linhas = todos
+                .map((p, i) => `${i + 1}. *${p.nome}* — ${p.numero.split('@')[0]}`)
+                .join('\n');
+            return await sock.sendMessage(usuarioJid, {
+                text: `📋 *Cadastrados* (${todos.length}):\n${linhas}`,
+            });
         }
 
         const mencaoLid = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];

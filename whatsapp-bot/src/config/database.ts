@@ -53,6 +53,14 @@ db.exec(`
     habilitado INTEGER NOT NULL DEFAULT 0,   -- 1 = anti-vácuo ligado neste grupo (opt-in)
     atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS vacuo_pendente (
+    grupo_jid TEXT PRIMARY KEY,              -- 1 timer pendente por grupo (espelha o Map em memória)
+    msg_id TEXT NOT NULL,                    -- id da mensagem que armou o timer
+    fire_at TEXT NOT NULL,                   -- ISO 8601: quando o timer deve disparar
+    payload TEXT NOT NULL,                   -- JSON do dto (sem sock) p/ reconstruir no boot
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migração idempotente: o DB de produção já tinha a tabela `agendamento` no schema

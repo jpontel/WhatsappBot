@@ -41,3 +41,40 @@ export function estaHabilitado(jid: string): boolean {
 export function listar(): string[] {
     return (stmtListar.all() as { jid: string }[]).map((r) => r.jid);
 }
+
+// --- persistência dos timers pendentes (sobreviver a restart) ----------------
+// O detector (vacuo-grupo) mantém os timers em memória, mas grava um espelho aqui
+// para re-armar no boot. 1 pendência por grupo (mesma semântica do Map).
+
+export interface VacuoPendente {
+    grupo_jid: string;
+    msg_id: string;
+    fire_at: string;
+    payload: string;
+}
+
+const stmtSalvarPendente = db.prepare(`
+    INSERT INTO vacuo_pendente (grupo_jid, msg_id, fire_at, payload)
+    VALUES (@grupo_jid, @msg_id, @fire_at, @payload)
+    ON CONFLICT(grupo_jid) DO UPDATE SET
+        msg_id = excluded.msg_id, fire_at = excluded.fire_at, payload = excluded.payload, criado_em = CURRENT_TIMESTAMP
+`);
+
+const stmtRemoverPendente = db.prepare(`DELETE FROM vacuo_pendente WHERE grupo_jid = ?`);
+
+const stmtListarPendentes = db.prepare(`SELECT grupo_jid, msg_id, fire_at, payload FROM vacuo_pendente`);
+
+/** Grava (upsert) o timer pendente de um grupo. */
+export function salvarPendente(grupoJid: string, msgId: string, fireAt: string, payload: string): void {
+    stmtSalvarPendente.run({ grupo_jid: grupoJid, msg_id: msgId, fire_at: fireAt, payload });
+}
+
+/** Remove o timer pendente de um grupo (ao cancelar ou disparar). */
+export function removerPendente(grupoJid: string): void {
+    stmtRemoverPendente.run(grupoJid);
+}
+
+/** Todos os timers pendentes (lidos no boot p/ re-armar). */
+export function listarPendentes(): VacuoPendente[] {
+    return stmtListarPendentes.all() as VacuoPendente[];
+}

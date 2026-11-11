@@ -97,7 +97,7 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
             midia: null,
             remetente: { numero: '5511@s.whatsapp.net', nome: null, registrado: false, ehAdmin: false },
         });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: 'ok' });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: 'ok' }, { quoted: d.msg });
         expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '💅', key: d.msg.key } });
     });
 
@@ -185,7 +185,7 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         await dispararLote();
 
         expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '❌', key: d.msg.key } });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "❌ Agente fora do ar, tenta de novo daqui a pouco 🥲" });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "❌ Agente fora do ar, tenta de novo daqui a pouco 🥲" }, { quoted: d.msg });
     });
 
     it('erro genérico: reage ❌ e envia mensagem padrão', async () => {
@@ -197,6 +197,6 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         await dispararLote();
 
         expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '❌', key: d.msg.key } });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "❌ Ixe, deu ruim na IA :p" });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "❌ Ixe, deu ruim na IA :p" }, { quoted: d.msg });
     });
 });

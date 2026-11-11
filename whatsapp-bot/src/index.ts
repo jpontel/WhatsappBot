@@ -16,9 +16,15 @@ import { enviarMensagem } from './core/dispatcher.js';
 import { whatsappService } from './services/whatsapp.service.js';
 import { startMcpServer } from './mcp/mcp.server.js';
 import { schedulerService } from './services/scheduler.service.js';
+import { inicializar as inicializarVacuoGrupo } from './core/vacuo-grupo.js';
 import { registrarDesligamentoGracioso } from './core/desligamento.js';
 
 const cache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
+
+// Re-armar os timers do anti-vácuo (persistidos) só uma vez, no 1º 'open' — depois
+// disso o socket está vivo e o disparo consegue responder. main() é recursivo em
+// reconexões, então a flag evita re-armar a cada reconexão.
+let vacuoReArmado = false;
 
 // main() é chamado recursivamente nas reconexões, criando um socket novo a cada vez.
 // Guardamos a referência viva aqui para que o desligamento gracioso (SIGTERM/SIGINT)
@@ -83,6 +89,12 @@ async function main() {
 
             whatsappService.inicializarInstancia(sock);
             codigoEnviado = false;
+
+            // Socket vivo: re-arma os timers do anti-vácuo que sobreviveram ao restart.
+            if (!vacuoReArmado) {
+                vacuoReArmado = true;
+                inicializarVacuoGrupo();
+            }
         }
 
         if(qr && !sock.authState.creds.me && !codigoEnviado) {
