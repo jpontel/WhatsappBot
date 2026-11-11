@@ -47,6 +47,12 @@ db.exec(`
     cadastrado_por TEXT,            -- numero (PN) de quem cadastrou
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS grupo_vacuo (
+    jid TEXT PRIMARY KEY,                    -- JID do grupo (@g.us)
+    habilitado INTEGER NOT NULL DEFAULT 0,   -- 1 = anti-vácuo ligado neste grupo (opt-in)
+    atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migração idempotente: o DB de produção já tinha a tabela `agendamento` no schema

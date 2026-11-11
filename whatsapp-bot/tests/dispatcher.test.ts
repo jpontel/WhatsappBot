@@ -8,6 +8,15 @@ vi.mock('../src/repository/pessoa.repository.js', () => ({
 }));
 import { buscarPorNumero } from '../src/repository/pessoa.repository.js';
 
+// Anti-vácuo de grupo: isolado aqui (não queremos tocar o SQLite nem agendar
+// timers nestes testes de dispatch). Grupo sempre "não habilitado".
+vi.mock('../src/repository/vacuo.repository.js', () => ({
+    estaHabilitado: () => false,
+    habilitar: vi.fn(),
+    desabilitar: vi.fn(),
+    listar: () => [],
+}));
+
 function mockSock() {
     return { sendMessage: vi.fn() } as any;
 }
@@ -42,6 +51,20 @@ function msgFotoComMencao(remoteJid: string, caption: string, mentionedJid: stri
     return {
         key: { id: 'm1', remoteJid, fromMe },
         message: { imageMessage: { caption, contextInfo: { mentionedJid } } },
+    } as any;
+}
+
+// Reply (quote) a uma mensagem: contextInfo.participant = autor da msg citada;
+// quotedMessage presente marca que é um reply de verdade.
+function msgReplyA(remoteJid: string, text: string, autorCitado: string, fromMe = false) {
+    return {
+        key: { id: 'm1', remoteJid, participant: '5511888888888@s.whatsapp.net', fromMe },
+        message: {
+            extendedTextMessage: {
+                text,
+                contextInfo: { participant: autorCitado, stanzaId: 'BOT1', quotedMessage: { conversation: 'msg do bot' } },
+            },
+        },
     } as any;
 }
 
@@ -187,6 +210,33 @@ describe('enviarMensagem (dispatcher)', () => {
         expect(execute.mock.calls[0][0].conteudo).toBe('qual a capital');
     });
 
+    it('reply a uma mensagem do PRÓPRIO bot aciona o /p sem @menção', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSockBot(),
+            { messages: [msgReplyA('123@g.us', 'e aí', '5541984598825@s.whatsapp.net')], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).toHaveBeenCalledOnce();
+        expect(execute.mock.calls[0][0].conteudo).toBe('e aí');
+    });
+
+    it('reply a OUTRA pessoa (não o bot) NÃO aciona o /p', async () => {
+        const execute = vi.fn();
+        const carregador = carregadorCom([{ name: '/p', execute }]);
+
+        await enviarMensagem(
+            mockSockBot(),
+            { messages: [msgReplyA('123@g.us', 'e aí', '5599999999999@s.whatsapp.net')], type: 'notify' },
+            carregador,
+        );
+
+        expect(execute).not.toHaveBeenCalled();
+    });
+
     it('/p explícito + menção não dispara duas vezes', async () => {
         const execute = vi.fn();
         const carregador = carregadorCom([{ name: '/p', execute }]);
@@ -214,7 +264,9 @@ describe('enviarMensagem (dispatcher)', () => {
         expect(execute).not.toHaveBeenCalled();
     });
 
-    it('menção sem texto manda recado amigável e não aciona o /p', async () => {
+    it('menção SEM texto aciona o /p (responde pelo contexto)', async () => {
+        // Comportamento atual (commit 6c2d45a): ser mencionada, mesmo sem texto,
+        // já aciona o /p — o agente responde com base no [contexto-recente].
         const execute = vi.fn();
         const carregador = carregadorCom([{ name: '/p', execute }]);
         const sock = mockSockBot();
@@ -225,8 +277,8 @@ describe('enviarMensagem (dispatcher)', () => {
             carregador,
         );
 
-        expect(execute).not.toHaveBeenCalled();
-        expect(sock.sendMessage).toHaveBeenCalled();
+        expect(execute).toHaveBeenCalledOnce();
+        expect(execute.mock.calls[0][0].conteudo).toBe('');
     });
 
     it('menção na legenda de uma FOTO aciona o /p', async () => {
