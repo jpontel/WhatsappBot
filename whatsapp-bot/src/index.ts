@@ -17,7 +17,12 @@ import { whatsappService } from './services/whatsapp.service.js';
 import { startMcpServer } from './mcp/mcp.server.js';
 import { schedulerService } from './services/scheduler.service.js';
 import { inicializar as inicializarVacuoGrupo } from './core/vacuo-grupo.js';
+import { instalarLogBuffer } from './core/log-buffer.js';
 import { registrarDesligamentoGracioso } from './core/desligamento.js';
+
+// Captura o console.* num ring buffer em memória (observabilidade /logs). Cedo,
+// para pegar o máximo de logs de runtime (connection, dispatch, erros).
+instalarLogBuffer();
 
 const cache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
 
