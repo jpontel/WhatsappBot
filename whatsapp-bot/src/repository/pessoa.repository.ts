@@ -44,6 +44,10 @@ const stmtBuscarPorLid = db.prepare(`
     SELECT * FROM pessoas WHERE lid = ?
 `);
 
+const stmtListarTodos = db.prepare(`
+    SELECT * FROM pessoas ORDER BY nome
+`);
+
 export function registrarPessoa(dto: RegistrarPessoaDto): void {
     stmtRegistrar.run({
         numero: dto.numero,
@@ -65,4 +69,9 @@ export function buscarPorNome(nome: string): Pessoa[] {
 /** Busca uma pessoa pelo LID (usado quando o mapeamento LID→número não é conhecido). */
 export function buscarPorLid(lid: string): Pessoa | null {
     return (stmtBuscarPorLid.get(lid) as Pessoa | undefined) ?? null;
+}
+
+/** Todas as pessoas cadastradas, em ordem alfabética de nome. */
+export function listarTodos(): Pessoa[] {
+    return stmtListarTodos.all() as Pessoa[];
 }

@@ -137,7 +137,6 @@ export async function enviarMensagem(
         if (isJidGroup(jid)) {
             await observarVacuoGrupo(sock, msg, jid, {
                 ehGatilho: ehComando || mencionouBot || ehDmCadastrado || respondeuBot,
-                acionar: comandos.get('/p')?.execute,
             });
         }
 

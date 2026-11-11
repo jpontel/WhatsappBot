@@ -16,7 +16,9 @@ const DEBOUNCE_MS = 3_000;
 type Midia = { base64: string; mimetype: string };
 type Remetente = { numero: string | null; nome: string | null; registrado: boolean; ehAdmin: boolean };
 type Citacao = { texto: string; autor: string | null };
-type ItemLote = { conteudo: string; msgKey: WAMessageKey; midia: Midia | null; citacao: Citacao | null };
+// `msg` (WAMessage completa) é guardada p/ o bot RESPONDER citando (reply) a
+// mensagem-gatilho — deixa claro a qual mensagem ele está respondendo.
+type ItemLote = { conteudo: string; msgKey: WAMessageKey; msg: WAMessage; midia: Midia | null; citacao: Citacao | null };
 
 // Extrai o texto de uma IMessage (mesma cadeia do dispatcher), serve para a msg citada.
 function extrairTextoMensagem(m: WAMessage['message']): string | null {
@@ -45,6 +47,10 @@ async function flush(chave: string): Promise<void> {
 
     const { sock, usuarioJid, remetente, itens } = lote;
     const keys = itens.map(i => i.msgKey);
+    // Mensagem que o bot vai CITAR (reply) na resposta: a última do lote (a mais
+    // recente). Deixa explícito a qual mensagem ele está respondendo — essencial
+    // quando foi acionado por reply/menção dentro de um grupo movimentado.
+    const msgParaResponder = itens[itens.length - 1]!.msg;
 
     try {
         // Citação (mensagem respondida): para 1 item vai como campo estruturado;
@@ -81,7 +87,7 @@ async function flush(chave: string): Promise<void> {
         // Remove invisíveis (zero-width/BOM) p/ não escapar uma bolha "em branco".
         const visivel = (texto ?? '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
         if (texto && visivel) {
-            await sock.sendMessage(usuarioJid, { text: texto });
+            await sock.sendMessage(usuarioJid, { text: texto }, { quoted: msgParaResponder });
         }
         // A reação de conclusão (💅) é emitida pelo AGENTE, e só em turnos de
         // AÇÃO (ver agente/src/api/chat.py). Conversa normal não ganha reação.
@@ -94,7 +100,7 @@ async function flush(chave: string): Promise<void> {
         for (const key of keys) {
             await sock.sendMessage(usuarioJid, { react: { text: '❌', key } });
         }
-        await sock.sendMessage(usuarioJid, { text: texto });
+        await sock.sendMessage(usuarioJid, { text: texto }, { quoted: msgParaResponder });
     } finally {
         // Equilibra os incrementos feitos no execute (1 por /p): só para de
         // "digitar" quando toda a fila do chat foi processada.
@@ -171,7 +177,7 @@ export default {
         if (existente) clearTimeout(existente.timer);
 
         const itens = existente ? existente.itens : [];
-        itens.push({ conteudo, msgKey: msg.key, midia, citacao });
+        itens.push({ conteudo, msgKey: msg.key, msg, midia, citacao });
 
         const timer = setTimeout(() => { void flush(chave); }, DEBOUNCE_MS);
         buffers.set(chave, { sock, usuarioJid, remetente, itens, timer });
