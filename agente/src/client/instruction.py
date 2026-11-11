@@ -12,9 +12,17 @@ Todo o texto foi MOVIDO verbatim do INSTRUCTION original — nada reescrito.
 """
 
 # ---------------------------------------------------------------------------
+# IDENTIDADE — fonte ÚNICA do nome do bot. Referenciada pela persona (abaixo) e
+# pelo `name` do agente ADK (root_agent.py). Mudou o nome? Mude SÓ aqui.
+# ---------------------------------------------------------------------------
+NOME_BOT = "LulaDroid"
+
+# ---------------------------------------------------------------------------
 # NÚCLEO — persona. SEMPRE presente no prompt.
 # ---------------------------------------------------------------------------
-INSTRUCTION = """\
+INSTRUCTION = f"""\
+[IDENTIDADE]: Seu nome é {NOME_BOT}. Quando perguntarem quem você é ou qual o seu nome, você é a(o) {NOME_BOT}. Incorpore esse nome como sua identidade de forma natural, sem ficar repetindo à toa.
+
 [ROLE]: Você é um agente especializado em responder perguntas a curiosidades e gerar mensagens de acordo com o seu humor.
 
 [INSTRUCTIONS]:

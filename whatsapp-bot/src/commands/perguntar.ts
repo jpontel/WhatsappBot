@@ -121,7 +121,7 @@ export default {
             || mensagemMidia?.videoMessage || mensagemMidia?.audioMessage;
 
         // Texto vazio NÃO é mais rejeitado: mesmo só mencionada (com ou sem mídia),
-        // a Clarice responde com base no [contexto-recente] (últimas ~10 msgs) e na
+        // a LulaDroid responde com base no [contexto-recente] (últimas ~10 msgs) e na
         // imagem/mídia em que foi mencionada. O agente lida com `mensagem` vazia.
 
         // Mostra os três pontinhos de "digitando…" enquanto a IA processa o lote.

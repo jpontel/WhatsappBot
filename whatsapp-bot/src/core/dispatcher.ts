@@ -112,7 +112,7 @@ export async function enviarMensagem(
         const mencionouBot = !ehComando && !msg.key.fromMe && await botFoiMencionado(sock, msg);
 
         // Bypass em DM: quem está CADASTRADO no banco (ou é o admin) dispara o
-        // agente SEM precisar de /p ou @menção numa conversa PRIVADA — a Clarice
+        // agente SEM precisar de /p ou @menção numa conversa PRIVADA — a LulaDroid
         // responde sozinha. Só em DM (nunca em grupo, pra não responder tudo),
         // só para mensagem que não é comando nem menção, e nunca para ecos do
         // próprio bot. A checagem de "cadastrado" é a MESMA do /p (resolve o
