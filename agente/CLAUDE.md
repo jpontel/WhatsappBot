@@ -52,8 +52,8 @@ src/
 
 ### Agente (`src/client/` + `src/tools/`)
 
-- `client/root_agent.py` instancia o `LlmAgent` único (`name="clarice"`, modelo lido de `settings.gemini_model`) e expõe o `runner` singleton.
-- `client/instruction.py` carrega a persona — migrada literalmente do `whatsapp-bot/src/services/google-cloud.service.ts`. **Persona vive aqui agora**, não no bot. Edite aqui se mudar o tom/dicionário de gírias.
+- `client/root_agent.py` instancia o `LlmAgent` único (`name=NOME_BOT.lower()` → `"luladroid"`, vindo de `client/instruction.py`; modelo lido de `settings.gemini_model`) e expõe o `runner` singleton.
+- `client/instruction.py` carrega a persona — migrada literalmente do `whatsapp-bot/src/services/google-cloud.service.ts`. **Persona vive aqui agora**, não no bot. Edite aqui se mudar o tom/dicionário de gírias. O **nome do bot** é a constante `NOME_BOT` (fonte ÚNICA da identidade): interpola no bloco `[IDENTIDADE]` da persona e alimenta o `name` do agente em `root_agent.py`. Para rebatizar o bot, mude só `NOME_BOT`.
 - `tools/tools.py` contém as ferramentas (geração de imagem/áudio, busca web/artigos, memória, etc.). Tools que precisam falar com o WhatsApp (sticker, imagem, texto, reagir) **não** moram aqui — moram no MCP do bot e chegam via `MCPToolset`.
 - `client/session.py` instancia `DatabaseSessionService(db_url=settings.database_url)` e exporta o `APP_NAME` usado pelo runner.
 

@@ -250,12 +250,12 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSock(),
-            { messages: [msgComTexto('5511999998888@s.whatsapp.net', 'oi clarice tudo bem')], type: 'notify' },
+            { messages: [msgComTexto('5511999998888@s.whatsapp.net', 'oi luladroid tudo bem')], type: 'notify' },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('oi clarice tudo bem');
+        expect(execute.mock.calls[0][0].conteudo).toBe('oi luladroid tudo bem');
     });
 
     it('DM de pessoa NÃO cadastrada não aciona o /p', async () => {
@@ -265,7 +265,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSock(),
-            { messages: [msgComTexto('5511777776666@s.whatsapp.net', 'oi clarice')], type: 'notify' },
+            { messages: [msgComTexto('5511777776666@s.whatsapp.net', 'oi luladroid')], type: 'notify' },
             carregador,
         );
 

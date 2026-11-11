@@ -7,7 +7,7 @@ from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 from client.contexto import injetar_contexto
 from client.fallback_model import FallbackGemini
 from client.historico import limitar_historico
-from client.instruction import INSTRUCTION
+from client.instruction import INSTRUCTION, NOME_BOT
 from client.roteador import filtrar_tools, injetar_instrucao
 from client.session import APP_NAME, session_service
 from tools.tools import (
@@ -103,7 +103,7 @@ def _antes_do_modelo(callback_context, llm_request):  # noqa: ANN001 - assinatur
 
 
 root_agent = LlmAgent(
-    name="megatron",
+    name=NOME_BOT.lower(),
     model=modelo,
     instruction=INSTRUCTION,
     generate_content_config=config_geracao,
