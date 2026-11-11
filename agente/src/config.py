@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     # Timeout da chamada do classificador; ao estourar, cai no fallback (neutro).
     classificador_timeout_seg: float = 5.0
 
+    # --- Observabilidade / logs (ring buffer em memória) -------------------------
+    log_buffer_max: int = 500       # nº de registros mantidos em memória
+    log_limite_max: int = 100       # teto de registros por recuperação (disciplina de token)
+    log_msg_max: int = 300          # truncamento da mensagem de cada registro
+
     # Baldes de estilo por tom (gate). SÃO APENAS os 9 `estilos_resposta` atuais
     # reparticionados — nenhum estilo novo. O balde `serio` usa os MENOS agressivos
     # como stopgap (não há registro sério no pool; melhoria futura é só preencher
