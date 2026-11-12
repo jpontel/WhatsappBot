@@ -49,6 +49,28 @@ function textoDaMensagem(msg: WAMessage): string {
     return t.replace(/\s+/g, ' ').trim();
 }
 
+// Risada "pura" (a mensagem inteira é só riso): kkkk, rsrs, hahaha, hehe, huehue,
+// ksksks. Ancorada em ^$ para não pegar palavra real curta ("era", "rua", "oi").
+const RISADA_PURA = /^(?:k{2,}|(?:ha)+|(?:he)+|(?:hi)+|(?:rs)+|(?:hue)+|(?:ks)+k?)$/i;
+
+// Mensagens que são claramente "ruído" e não convidam resposta: risada pura,
+// só emoji(s)/pontuação ou figurinha sozinha. Barrar aqui evita o anti-vácuo
+// responder a um "KKKKK" ou a uma reação visual — não há vácuo real a quebrar,
+// só encheria o saco. Conservador de propósito: qualquer frase real passa.
+function naoPedeResposta(msg: WAMessage): boolean {
+    if (msg.message?.stickerMessage) return true; // reação visual, não pede resposta
+
+    const texto = textoDaMensagem(msg);
+    if (!texto) return false; // imagem/áudio/vídeo sem legenda seguem o fluxo normal
+
+    if (RISADA_PURA.test(texto.replace(/\s+/g, ''))) return true;
+
+    // Sem nenhuma letra nem dígito → só emoji/pontuação/símbolo.
+    if (!/[\p{L}\p{N}]/u.test(texto)) return true;
+
+    return false;
+}
+
 function cancelar(jid: string, logar: boolean): void {
     const t = timers.get(jid);
     if (!t) return;
@@ -115,6 +137,10 @@ export async function observar(
     if (opts.ehGatilho || msg.key.fromMe) return;
     if (!estaHabilitado(jid)) return;
     if (textoParaContexto(msg.message) == null) return;
+    if (naoPedeResposta(msg)) {
+        console.log(`[anti-vácuo] ignorado no grupo ${jid} (ruído: risada/emoji/figurinha — não arma timer)`);
+        return;
+    }
 
     // Só agenda p/ remetente CADASTRADO (admin conta). Só aqui pagamos o resolve.
     const numero = await resolverNumeroRemetente(sock, msg);
