@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     # uma das vozes prebuilt do Gemini (ex.: Kore, Puck, Aoede, Charon).
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_tts_voz: str = "Kore"
+    # Áudio espontâneo: de vez em quando (peso MAIOR p/ texto) a resposta de
+    # CONVERSA vira uma NOTA DE VOZ (TTS) em vez de texto — simula o envio
+    # espontâneo de áudio. A decisão é DETERMINÍSTICA no /chat (não depende de o
+    # LLM "lembrar" de mandar áudio): sorteia com `prob`; o texto prevalece em
+    # ~(1 - prob) dos turnos. Só vale p/ texto puro, curto e quando NENHUMA mídia
+    # já foi enviada no turno. `ativo=false` é o kill switch. Tunável.
+    audio_espontaneo_ativo: bool = True
+    audio_espontaneo_prob: float = 0.12       # chance de virar áudio (~12%); o resto é texto
+    audio_espontaneo_texto_max: int = 350     # acima disso NÃO vira áudio (TTS fica longo/lento)
     # Geração de MÚSICA (Lyria 3). O `clip` gera clipes de ~30s (versão limitada);
     # o `pro` faria músicas longas (não usado, mais caro). Devolve MP3 base64.
     gemini_music_model: str = "lyria-3-clip-preview"

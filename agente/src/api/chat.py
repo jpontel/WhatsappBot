@@ -19,6 +19,7 @@ from client.root_agent import runner
 from client.session import APP_NAME, session_service
 from config import settings
 from schemas.chat import ChatRequest, ChatResponse
+from tools.tools import gerar_e_enviar_audio
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -204,6 +205,46 @@ async def _reconhecer_rosto(req: ChatRequest) -> str:
     return "; ".join(f"{nome} ({numero})" for numero, nome in vistos.items())
 
 
+# Marcadores de nome de tool que JÁ entregam mídia no turno (áudio, música,
+# imagem, figurinha, semaninha). Se qualquer uma rodou, NÃO transformamos a
+# resposta em áudio espontâneo — evita mandar dois áudios/mídias no mesmo turno.
+_MARCAS_MIDIA = ("audio", "musica", "imagem", "sticker", "figurinha", "semaninha")
+
+
+async def _talvez_responder_em_audio(
+    req: ChatRequest, texto_final: str | None, tools_acionadas: list[str]
+) -> str | None:
+    """De vez em quando (peso p/ texto) troca a resposta de texto por uma NOTA DE VOZ.
+
+    Decisão DETERMINÍSTICA (sorteio com `settings.audio_espontaneo_prob`),
+    independente do LLM — simula o envio espontâneo de áudio. Só atua em texto
+    puro, curto e quando nenhuma mídia já foi enviada no turno. Em sucesso, gera o
+    TTS, envia como nota de voz via MCP e devolve `None` (o áudio É a resposta — o
+    bot suprime texto vazio). Qualquer falha mantém o texto (fallback silencioso).
+    """
+    if not settings.audio_espontaneo_ativo or not texto_final:
+        return texto_final
+    if any(any(m in t.lower() for m in _MARCAS_MIDIA) for t in tools_acionadas):
+        return texto_final  # já mandou mídia neste turno — não dobra
+    if len(texto_final) > settings.audio_espontaneo_texto_max:
+        return texto_final  # texto longo vira TTS ruim/lento (e encosta no timeout)
+    if random.random() >= settings.audio_espontaneo_prob:
+        return texto_final  # saiu "texto" no sorteio (o caso comum)
+
+    try:
+        res = await gerar_e_enviar_audio(texto_final, req.chatId)
+    except Exception:  # noqa: BLE001 - nunca derruba o turno; cai pro texto
+        logger.warning("Áudio espontâneo falhou (exceção) em %s", req.chatId, exc_info=True)
+        return texto_final
+    if isinstance(res, dict) and res.get("erro"):
+        logger.warning("Áudio espontâneo falhou em %s: %s", req.chatId, res["erro"])
+        return texto_final
+
+    tools_acionadas.append("audio_espontaneo")  # observabilidade (não é tool do LLM)
+    logger.info("Resposta enviada como áudio espontâneo em %s", req.chatId)
+    return None
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
     rota: str | None = None
@@ -290,6 +331,12 @@ async def chat(req: ChatRequest) -> ChatResponse:
                     await _reagir(req, "💅")
                 elif eh_acao:
                     await _reagir(req, "")
+
+                # Depois das reações (para não disparar o 💅 de "ação" numa
+                # conversa): às vezes a resposta vira nota de voz em vez de texto.
+                texto_final = await _talvez_responder_em_audio(
+                    req, texto_final, tools_acionadas
+                )
             finally:
                 request_context.limpar_rota(token_rota)
                 request_context.limpar_contexto(token_ctx)
