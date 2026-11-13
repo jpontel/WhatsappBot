@@ -15,3 +15,6 @@ linode_secondary/
 
 ## Token de conexão com o repo do github
 docs/personal-token-github.md
+
+# Bloco de notas pessoal do dev (não versionar)
+/todo.md
