@@ -36,7 +36,7 @@ function msgComTexto(remoteJid: string, text: string) {
 
 // Sock com identidade do bot (número 41), p/ exercitar o gatilho por menção.
 function mockSockBot() {
-    return { sendMessage: vi.fn(), user: { id: 'REMOVIDO_TEL@s.whatsapp.net' } } as any;
+    return { sendMessage: vi.fn(), user: { id: '550000000001@s.whatsapp.net' } } as any;
 }
 
 function msgComMencao(remoteJid: string, text: string, mentionedJid: string[], fromMe = false) {
@@ -88,7 +88,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSock(),
-            { messages: [msgComTexto('REMOVIDO_TEL@s.whatsapp.net', '/oi')], type: 'notify' },
+            { messages: [msgComTexto('550000000002@s.whatsapp.net', '/oi')], type: 'notify' },
             carregador,
         );
 
@@ -202,7 +202,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgComMencao('123@g.us', '@REMOVIDO_TEL qual a capital', ['REMOVIDO_TEL@s.whatsapp.net'])], type: 'notify' },
+            { messages: [msgComMencao('123@g.us', '@550000000001 qual a capital', ['550000000001@s.whatsapp.net'])], type: 'notify' },
             carregador,
         );
 
@@ -216,7 +216,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgReplyA('123@g.us', 'e aí', 'REMOVIDO_TEL@s.whatsapp.net')], type: 'notify' },
+            { messages: [msgReplyA('123@g.us', 'e aí', '550000000001@s.whatsapp.net')], type: 'notify' },
             carregador,
         );
 
@@ -243,7 +243,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgComMencao('123@g.us', '/p oi', ['REMOVIDO_TEL@s.whatsapp.net'])], type: 'notify' },
+            { messages: [msgComMencao('123@g.us', '/p oi', ['550000000001@s.whatsapp.net'])], type: 'notify' },
             carregador,
         );
 
@@ -257,7 +257,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgComMencao('123@g.us', '@REMOVIDO_TEL oi', ['REMOVIDO_TEL@s.whatsapp.net'], true)], type: 'notify' },
+            { messages: [msgComMencao('123@g.us', '@550000000001 oi', ['550000000001@s.whatsapp.net'], true)], type: 'notify' },
             carregador,
         );
 
@@ -273,7 +273,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             sock,
-            { messages: [msgComMencao('123@g.us', '@REMOVIDO_TEL', ['REMOVIDO_TEL@s.whatsapp.net'])], type: 'notify' },
+            { messages: [msgComMencao('123@g.us', '@550000000001', ['550000000001@s.whatsapp.net'])], type: 'notify' },
             carregador,
         );
 
@@ -287,7 +287,7 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgFotoComMencao('123@g.us', '@REMOVIDO_TEL quem é essa pessoa', ['REMOVIDO_TEL@s.whatsapp.net'])], type: 'notify' },
+            { messages: [msgFotoComMencao('123@g.us', '@550000000001 quem é essa pessoa', ['550000000001@s.whatsapp.net'])], type: 'notify' },
             carregador,
         );
 
