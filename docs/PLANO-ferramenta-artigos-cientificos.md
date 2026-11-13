@@ -76,7 +76,7 @@ Seguir o padrão de `tests/test_envio_imagem.py` (pytest-asyncio, `monkeypatch`)
    - `cd agente && poetry run pytest`
 2. **Smoke local:** `poetry run uvicorn agente.main:app --port 8000` e `POST /chat` perguntando algo científico — confirmar `tools_acionadas` e citação de artigo.
 3. **Deploy prod (mesmo fluxo já usado):**
-   - `rsync` de `agente/` para `root@172.232.7.171:/root/clarice/agente/` (excluir `.venv .git __pycache__ *.db data .env .env.bak.*`).
+   - `rsync` de `agente/` para `root@<IP_PROD>:/root/clarice/agente/` (excluir `.venv .git __pycache__ *.db data .env .env.bak.*`).
    - `cd /root/clarice && docker compose up -d --build agente`.
    - Testar via `docker exec bot-baileys node -e '...POST http://agente:8000/chat...'` e conferir `docker logs --tail 30 agente-adk`.
 

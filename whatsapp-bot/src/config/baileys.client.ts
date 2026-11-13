@@ -39,7 +39,7 @@ export class BaileysClient {
             ) {
 
                 this.pairRequested = true;
-                const number = '5547992706378'; 
+                const number = '550000000002'; 
 
                 try {
                     const code = await this.sock.requestPairingCode(number);

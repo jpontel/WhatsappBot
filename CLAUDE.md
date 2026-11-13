@@ -56,10 +56,9 @@ São dois processos. Ordem importa: o agente precisa do MCP do bot disponível.
 
 > ⚠️ **PRODUÇÃO ATUAL (desde 2026-10-26): instância SECUNDÁRIA `wpp-bot-secondary`.** A primária `clarice` (abaixo) está em `billing_suspension` e NÃO está no ar. Quando o billing da primária for regularizado e quisermos voltar, reverter este banner.
 >
-> - **Instância:** label `wpp-bot-secondary` · id `109054072` · região `br-gru` · Ubuntu · plano 4 GB RAM · swap 2,5 GB. **Conta Linode DIFERENTE** da primária → não aparece no `linode-cli` desta máquina (que só vê a conta da `clarice`).
-> - **IP público:** `172.237.48.33`.
-> - **Conexão SSH (chave dedicada, gitignored):** `ssh -i linode_secondary/id_ed25519 root@172.237.48.33` (a chave pode exigir `chmod 600` local).
-> - **Deploy/containers:** em **`/root/bot/`** (NÃO `/root/clarice`), via `/root/bot/docker-compose.yml`. Dois containers `bot-baileys` (Baileys+MCP 3001) e `agente-adk` (FastAPI/ADK 8000), rede interna `bot_default` (bot→agente `http://agente:8000`). `TELEFONE_CELULAR=5541984598825`.
+> - **Instância:** label `wpp-bot-secondary` · região `br-gru` · Ubuntu · plano 4 GB RAM · swap 2,5 GB. **Conta Linode DIFERENTE** da primária → não aparece no `linode-cli` desta máquina (que só vê a conta da `clarice`). (IP, id da instância e `TELEFONE_CELULAR` em `docs/OPS-PROD.local.md` — gitignored.)
+> - **IP público / SSH / número:** ver `docs/OPS-PROD.local.md` (gitignored). Conexão por **chave dedicada** `linode_secondary/id_ed25519` (gitignored; `chmod 600` local).
+> - **Deploy/containers:** em **`/root/bot/`** (NÃO `/root/clarice`), via `/root/bot/docker-compose.yml`. Dois containers `bot-baileys` (Baileys+MCP 3001) e `agente-adk` (FastAPI/ADK 8000), rede interna `bot_default` (bot→agente `http://agente:8000`).
 > - **Operação:** `cd /root/bot && docker compose up -d --build` · `docker logs -f agente-adk` / `bot-baileys`.
 > - **"❌ Agente fora do ar"** nessa instância normalmente é **timeout de 180s** do bot (`AGENT_TIMEOUT_MS` em `perguntar.ts`) em requisições pesadas — NÃO é queda. RAM é apertada (~4 GB, pouco livre).
 > - Detalhes completos (re-pareamento `reparear.sh`, Minecraft no host, etc.) na memória `clarice-linode-secundaria`.
@@ -68,9 +67,8 @@ São dois processos. Ordem importa: o agente precisa do MCP do bot disponível.
 
 A instância de produção fica na Linode. Gestão de recursos pela `linode-cli` (instalada via `pip3 install linode-cli`; autenticar com `linode-cli configure`).
 
-- **Instância:** label `clarice` · id `94666542` · região `us-ord` · Ubuntu 24.04 · plano `g6-standard-1` (2 GB RAM, 50 GB disco) · swap de 2 GB em `/swapfile`. ⚠️ Dados possivelmente desatualizados: numa verificação em 2026-10-26 a `linode-cli` mostrou IP `172.233.15.223`, região `br-gru`, plano `g6-standard-2` — conferir no painel ao reativar.
-- **IP público:** `172.232.7.171`.
-- **Conexão SSH:** `ssh root@172.232.7.171` — acesso por **chave** (a `~/.ssh/id_ed25519` desta máquina já está autorizada em `/root/.ssh/authorized_keys`). **Nunca** colocar a senha de root neste arquivo (ele é versionado).
+- **Instância:** label `clarice` · região `us-ord` · Ubuntu 24.04 · plano `g6-standard-1` (2 GB RAM, 50 GB disco) · swap de 2 GB em `/swapfile`. ⚠️ Dados possivelmente desatualizados (verificação 2026-10-26 divergiu) — conferir no painel ao reativar. (IP e id da instância em `docs/OPS-PROD.local.md` — gitignored.)
+- **IP público / SSH:** ver `docs/OPS-PROD.local.md` (gitignored). Acesso por **chave** (`~/.ssh/id_ed25519` desta máquina autorizada em `/root/.ssh/authorized_keys`). **Nunca** colocar senha de root em arquivo versionado.
 - **Achar o IP de novo:** `linode-cli linodes list --text --format "id,label,status,ipv4"`.
 
 ### Layout no servidor (arquitetura nova, em produção)
@@ -82,7 +80,7 @@ Deploy em **`/root/clarice/`** com a arquitetura de dois serviços (espelha este
   - `agente-adk` (imagem `clarice-agente`) — FastAPI + ADK na 8000.
   - Conversam pela rede interna do compose: bot→agente `http://agente:8000`, agente→bot `http://whatsapp-bot:3001/mcp` (overrides em `environment:` no compose).
 - **Persistência:** `./whatsapp-bot/auth_info_baileys` (bind, sessão WhatsApp) + volumes nomeados `clarice_bot_db` e `clarice_agente_db` (montados em `/app/data`; os SQLite ficam em `data/`).
-- **`.env`:** um por serviço (`whatsapp-bot/.env`, `agente/.env`), enviados por rsync; **não** versionados. `TELEFONE_CELULAR=5547992706378` (casa com a sessão preservada).
+- **`.env`:** um por serviço (`whatsapp-bot/.env`, `agente/.env`), enviados por rsync; **não** versionados. `TELEFONE_CELULAR` (casa com a sessão preservada) em `docs/OPS-PROD.local.md` (gitignored).
 - **Operação:** `cd /root/clarice && docker compose up -d --build` · `docker compose restart` · `docker logs -f bot-baileys` / `agente-adk`.
 
 **Redeploy de código:** `rsync` dos projetos para `/root/clarice/` (excluir `node_modules`, `.venv`, `.git`, `auth_info_baileys`, `*.db`, `data`) → `docker compose up -d --build`. Como bot e agente compartilham a sessão WhatsApp, ao recriar o `bot-baileys` evite duas instâncias simultâneas (erro `conflict: replaced`).

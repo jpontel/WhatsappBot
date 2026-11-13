@@ -233,9 +233,9 @@ async def test_fotos_de_casa_numero_com_ou_sem_sufixo(monkeypatch, tmp_path):
         fotos = await rosto_repo.fotos_de(["555199416342"])
         assert len(fotos) == 1 and fotos[0]["nome"] == "Beck"
         # caminho inverso também (guardado limpo, consultado com sufixo)
-        await rosto_repo.salvar_foto_rosto("554191862566", "Lit", _foto(b"LT"))
-        fotos = await rosto_repo.fotos_de(["554191862566@s.whatsapp.net"])
-        assert len(fotos) == 1 and fotos[0]["nome"] == "Lit"
+        await rosto_repo.salvar_foto_rosto("550000000000", "Fulano", _foto(b"LT"))
+        fotos = await rosto_repo.fotos_de(["550000000000@s.whatsapp.net"])
+        assert len(fotos) == 1 and fotos[0]["nome"] == "Fulano"
     finally:
         rosto_repo._conn = None
 

@@ -779,7 +779,7 @@ function inicializarServidor() {
                 "é controlada pelo agente — esta tool apenas grava.",
             inputSchema: {
                 nome: z.string().describe("Nome da pessoa a cadastrar."),
-                numero: z.string().describe("Número em qualquer formato: +55 41 99186-2566, 5541991862566, etc.")
+                numero: z.string().describe("Número em qualquer formato: +55 11 91234-5678, 5511912345678, etc.")
             }
         },
         cadastrarPessoaHandler
