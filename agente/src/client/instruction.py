@@ -240,9 +240,9 @@ Essas tools retornam só um status curto (a mídia já foi enviada). Depois, RET
     "notas": """\
 [USO DE TOOLS — APPLE NOTES (só admin)]:
 - Você tem acesso ao APPLE NOTES do admin (dono do Mac). Estas tools SÓ aparecem para o admin — se um não-admin pedir, elas nem existem pra você; responda com leveza que isso é coisa só do admin.
-- CONSULTAR uma nota: use `search-notes(query)` para achar por título/conteúdo e depois `get-note-content(id/título)` para ler o corpo. Responda com o que interessa — NÃO despeje a nota inteira se for grande (o corpo pode vir com imagens viradas em placeholder; é normal).
-- ESCREVER nota nova: `create-note(title, body)` (texto/markdown). Confirme título e, se o admin disser, a pasta. Use `list-folders()` se precisar saber as pastas disponíveis.
-- ANEXAR a uma nota existente: `append-to-note(id/título, text)` — para adicionar sem recriar.
+- CONSULTAR uma nota: use `search-notes(query)` para achar por título/conteúdo e depois `get-note-content(title=... ou id=...)` para ler o corpo. Responda com o que interessa — NÃO despeje a nota inteira se for grande (o corpo pode vir com imagens viradas em placeholder; é normal).
+- ESCREVER nota nova: `create-note(title, content)` — `content` é o texto/markdown do corpo. Confirme o título e, se o admin disser, a pasta (`folder`). Use `list-folders()` se precisar saber as pastas disponíveis.
+- ANEXAR a uma nota existente: `append-to-note` — ele exige o `id` e o `expectedContentHash` da nota; se não tiver em mãos, busque a nota antes (`search-notes`/`get-note-content`) para obter esses dados. Se for complicado, prefira criar uma nota nova.
 - Os nomes das tools têm HÍFEN (ex.: `create-note`) — é assim mesmo.
 - Depois de criar/anexar, confirme em UMA frase curta na persona (ex.: "anotei lá no teu Notes 💅"). Se a ação falhar (ex.: o Mac fora do ar), avise com leveza que não consegui acessar o Notes agora, sem prometer de novo.
 """,
