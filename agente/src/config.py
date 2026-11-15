@@ -112,6 +112,24 @@ class Settings(BaseSettings):
 
     mcp_url: str = "http://localhost:3001/mcp"
 
+    # --- Apple Notes via ponte supergateway (stdio→StreamableHTTP no Mac) ---------
+    # Integração OPCIONAL: só o ADMIN usa (Notes é dado pessoal do dono do Mac);
+    # o gate de identidade vive no tool_filter do toolset (root_agent.py).
+    # `notes_mcp_url` VAZIO = integração DESLIGADA (kill switch) — não registra o
+    # toolset nem adiciona nada ao prompt. Ver docs/PLANO-apple-notes-mcp.md.
+    notes_mcp_url: str = ""                  # ex.: http://<ip-tailnet-do-mac>:8787/mcp
+    notes_mcp_token: str = ""               # bearer p/ a ponte (NUNCA no YAML versionado)
+    # Timeout do handshake/listagem de tools. CURTO de propósito: o ADK resolve
+    # TODOS os toolsets a cada turno (antes do roteador podar), e com o Mac fora do
+    # ar o @retry_on_errors do ADK re-tenta 1x → custo ~2×timeout por turno. ~4s
+    # equilibra cold start do bridge vs. imposto de latência. Esvazie notes_mcp_url
+    # quando souber que o Mac está fora.
+    notes_mcp_timeout_seg: float = 4.0
+    # Leitura do stream de resposta: DEVE ser < 180s (AGENT_TIMEOUT_MS do bot) para
+    # uma busca lenta em NoteStore grande estourar aqui (erro claro) antes de o bot
+    # marcar "❌ Agente fora do ar".
+    notes_mcp_sse_timeout_seg: float = 120.0
+
     # Janela de histórico enviada ao modelo por turno. O ADK, por padrão,
     # replaya a SESSÃO INTEIRA (todos os eventos desde sempre) a cada /chat —
     # isso infla custo/latência e faz o modelo imitar chamadas de tool antigas

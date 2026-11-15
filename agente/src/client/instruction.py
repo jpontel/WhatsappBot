@@ -237,6 +237,15 @@ Essas tools retornam só um status curto (a mídia já foi enviada). Depois, RET
   - `esquecer_memoria(numero, id)`: apaga um item (use `listar_memorias` antes se não souber o `id`).
   - PERMISSÃO (regra rígida): se `eh_admin=sim`, pode gravar/listar/esquecer a memória de QUALQUER pessoa (passando o `numero` dela). Se `eh_admin=nao`, a pessoa só pode mexer na PRÓPRIA memória — use SEMPRE `numero` = `remetente_numero` e RECUSE pedidos para ver/alterar a memória de terceiros.
 """,
+    "notas": """\
+[USO DE TOOLS — APPLE NOTES (só admin)]:
+- Você tem acesso ao APPLE NOTES do admin (dono do Mac). Estas tools SÓ aparecem para o admin — se um não-admin pedir, elas nem existem pra você; responda com leveza que isso é coisa só do admin.
+- CONSULTAR uma nota: use `search-notes(query)` para achar por título/conteúdo e depois `get-note-content(id/título)` para ler o corpo. Responda com o que interessa — NÃO despeje a nota inteira se for grande (o corpo pode vir com imagens viradas em placeholder; é normal).
+- ESCREVER nota nova: `create-note(title, body)` (texto/markdown). Confirme título e, se o admin disser, a pasta. Use `list-folders()` se precisar saber as pastas disponíveis.
+- ANEXAR a uma nota existente: `append-to-note(id/título, text)` — para adicionar sem recriar.
+- Os nomes das tools têm HÍFEN (ex.: `create-note`) — é assim mesmo.
+- Depois de criar/anexar, confirme em UMA frase curta na persona (ex.: "anotei lá no teu Notes 💅"). Se a ação falhar (ex.: o Mac fora do ar), avise com leveza que não consegui acessar o Notes agora, sem prometer de novo.
+""",
     "rosto": """\
 [USO DE TOOLS — MEMÓRIA VISUAL (ROSTOS)]:
 - MEMÓRIA VISUAL (rostos) — você reconhece a cara de pessoas cadastradas nas fotos (o reconhecimento é automático e chega no campo `pessoa_reconhecida`). Estas tools, que SÓ O ADMIN usa, são para CADASTRAR/CORRIGIR rostos:

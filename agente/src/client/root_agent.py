@@ -10,6 +10,7 @@ from client.historico import limitar_historico
 from client.instruction import INSTRUCTION, NOME_BOT
 from client.roteador import filtrar_tools, injetar_instrucao
 from client.session import APP_NAME, session_service
+from shared import request_context
 from tools.tools import (
     agendar_alerta,
     buscar_artigos,
@@ -68,6 +69,47 @@ mcp_toolset = MCPToolset(
     tool_filter=_expor_tool_mcp,
 )
 
+# --- Apple Notes (via ponte supergateway no Mac) — toolset OPCIONAL -------------
+# Nomes em KEBAB-CASE: o ADK não renomeia tools MCP e o Gemini aceita hífen —
+# NÃO trocar por underscore (quebraria o casamento no tool_filter e no roteador).
+# Mantenha esta lista em sincronia com _TOOLS_POR_ROTA["notas"] em roteador.py.
+# Subconjunto SEGURO (sem delete-note/rename-folder): escrever e consultar.
+_NOTES_TOOLS_EXPOSTAS = {
+    "create-note",        # escrever nota nova
+    "search-notes",       # buscar por título/conteúdo
+    "get-note-content",   # ler o corpo de uma nota
+    "append-to-note",     # anexar a uma nota existente
+    "list-folders",       # listar pastas (contexto p/ criar na pasta certa)
+}
+
+
+def _expor_tool_notes(tool, readonly_context=None) -> bool:  # noqa: ANN001 - ToolPredicate
+    # Gate de identidade: Apple Notes é dado PESSOAL do dono do Mac → SÓ admin.
+    # Roda por request na resolução de canonical_tools (mesma ContextVar do turno,
+    # definida em chat.py antes do runner). Default eh_admin=False → fail-closed
+    # (tools somem até p/ admin se o contexto faltar; nunca vaza). Cobre rota E
+    # fallback num ponto só (no fallback o roteador não filtra).
+    _numero, eh_admin, _registrado = request_context.atual()
+    if not eh_admin:
+        return False
+    return tool.name in _NOTES_TOOLS_EXPOSTAS
+
+
+# Kill switch: sem notes_mcp_url, não registra nada (integração desligada).
+notes_toolset = (
+    MCPToolset(
+        connection_params=StreamableHTTPConnectionParams(
+            url=settings.notes_mcp_url,
+            headers={"Authorization": f"Bearer {settings.notes_mcp_token}"},
+            timeout=settings.notes_mcp_timeout_seg,
+            sse_read_timeout=settings.notes_mcp_sse_timeout_seg,
+        ),
+        tool_filter=_expor_tool_notes,
+    )
+    if settings.notes_mcp_url
+    else None
+)
+
 # Modelo com fallback automático em 429/503 (high demand / cota).
 modelo = FallbackGemini(
     model=settings.gemini_model,
@@ -113,6 +155,7 @@ root_agent = LlmAgent(
     before_model_callback=_antes_do_modelo,
     tools=[
         mcp_toolset,
+        *([notes_toolset] if notes_toolset else []),
         buscar_web,
         buscar_artigos,
         deepsearch_artigos,

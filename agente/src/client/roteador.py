@@ -71,6 +71,13 @@ _TOOLS_POR_ROTA: dict[str, frozenset[str]] = {
     "memoria": frozenset({
         "salvar_memoria", "listar_memorias", "esquecer_memoria", "buscar_contato",
     }),
+    # Apple Notes (via ponte MCP no Mac) — SÓ admin. Nomes em KEBAB-CASE (o ADK não
+    # renomeia tools MCP). MANTER em sincronia com _NOTES_TOOLS_EXPOSTAS em
+    # root_agent.py (drift → tool some na rota ou vaza no fallback).
+    "notas": frozenset({
+        "create-note", "search-notes", "get-note-content",
+        "append-to-note", "list-folders",
+    }),
     "rosto": frozenset({"registrar_rosto", "esquecer_rosto", "buscar_contato"}),
     "busca": frozenset({"buscar_web", "buscar_artigos", "deepsearch_artigos"}),
     # Imagem no turno sem outra intenção: o modelo só "olha" e comenta — nenhuma
@@ -108,6 +115,19 @@ _RE_AUDIO = re.compile(
 )
 _RE_LEMBRETE = re.compile(r"\b(me lembr\w*|lembr[ae] de|me avis\w*|agend\w*|todo dia|toda\s+(segunda|terca|quarta|quinta|sexta|sabado|domingo|semana|hora|noite|manha)|amanha|depois de amanha|daqui a|as \d{1,2}(h|:| horas?| da)|cron)\b")
 _RE_MEMORIA = re.compile(r"\b(anota\w*|anote|lembra que eu|guarda que|memoriz\w*|salva que|registra que|nao esquec\w* que|grava que)\b")
+# Apple Notes (rota "notas") — exige menção EXPLÍCITA ao substantivo "nota(s)" ou
+# "apple notes". Isso desambigua da memória vetorial (_RE_MEMORIA casa "anota que
+# eu gosto..." → memoria) e do cadastro (_RE_CADASTRO casa "registra o fulano" →
+# cadastro). A rota é gateada a admin (ver decidir_rota) e posicionada ANTES de
+# cadastro/memória — mas o gate só funciona se o regex casar a frase; por isso ele
+# cobre "registra/anota NA nota", "cria uma nota", "minhas notas", etc.
+_RE_NOTAS = re.compile(
+    r"\bapple notes\b"
+    r"|\b(anot|registr|salv|guard|escrev|cri|adicion|busc|abr|le|ler|consult|procur|ach)\w*"
+    r"\s+(a|o|na|no|numa|num|uma|um|essa|esse|aquela|aquele|minha|meu|nas|nos|minhas)?\s*notas?\b"
+    r"|\b(na|nas|numa|minha|minhas)\s+notas?\b"
+    r"|\bo que (tem|ta|esta|diz|tinha|havia) (na|em|dentro da|nas) notas?\b"
+)
 _RE_ROSTO_PESSOA = re.compile(r"\b(esse|essa|este|esta)\s+(e|eh)\s+[oa]\b")
 _RE_ROSTO_KW = re.compile(r"\b(cadastr\w*\s+(o|a|esse|essa|rosto)|rosto d|reconhec\w*)\b")
 # Cadastro de pessoa pelo número (sem imagem): "cadastra o fulano <número>",
@@ -156,6 +176,12 @@ def decidir_rota(
     # execução (geracao_visual). Só explica, não dispara tool.
     if _RE_AJUDA.search(m):
         return "ajuda"
+
+    # 0.5) Apple Notes — SÓ admin (dado pessoal do dono do Mac). ANTES de cadastro
+    # (1.1, `registr\w*`) e memória (7, `anota\w*`) para não ser sequestrada por
+    # "registra/anota na nota...". Exige menção explícita a "nota(s)"/"apple notes".
+    if eh_admin and _RE_NOTAS.search(m):
+        return "notas"
 
     # 1) Cadastro de rosto — só admin, com imagem e marcador explícito.
     if tem_imagem and eh_admin and (_RE_ROSTO_PESSOA.search(m) or _RE_ROSTO_KW.search(m)):
