@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     # uma das vozes prebuilt do Gemini (ex.: Kore, Puck, Aoede, Charon).
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_tts_voz: str = "Kore"
+    # Áudio espontâneo: de vez em quando (peso MAIOR p/ texto) a resposta de
+    # CONVERSA vira uma NOTA DE VOZ (TTS) em vez de texto — simula o envio
+    # espontâneo de áudio. A decisão é DETERMINÍSTICA no /chat (não depende de o
+    # LLM "lembrar" de mandar áudio): sorteia com `prob`; o texto prevalece em
+    # ~(1 - prob) dos turnos. Só vale p/ texto puro, curto e quando NENHUMA mídia
+    # já foi enviada no turno. `ativo=false` é o kill switch. Tunável.
+    audio_espontaneo_ativo: bool = True
+    audio_espontaneo_prob: float = 0.12       # chance de virar áudio (~12%); o resto é texto
+    audio_espontaneo_texto_max: int = 350     # acima disso NÃO vira áudio (TTS fica longo/lento)
     # Geração de MÚSICA (Lyria 3). O `clip` gera clipes de ~30s (versão limitada);
     # o `pro` faria músicas longas (não usado, mais caro). Devolve MP3 base64.
     gemini_music_model: str = "lyria-3-clip-preview"
@@ -47,6 +56,49 @@ class Settings(BaseSettings):
         "provocação travessa/flerte zoeiro",
     ]
 
+    # --- Classificador de tom/complexidade (sensor por LLM leve) ----------------
+    # Um classificador barato lê a mensagem + contexto curto e devolve {tom,
+    # complexidade}. O `tom` escolhe o BALDE de estilos (gate) e a `complexidade`
+    # vira uma dica de tamanho. Mantém a VARIEDADE (ainda sorteia dentro do balde),
+    # mas no registro certo. Ver docs/PLANO-classificador-tom-complexidade.md.
+    classificador_ativo: bool = True
+    # Modelo do classificador: o mais barato/rápido (tarefa trivial). Separado do
+    # modelo da resposta de propósito.
+    gemini_model_classificador: str = "gemini-3.5-flash-lite"
+    # Teto de mensagens de contexto enviadas AO classificador (bem menor que o da
+    # resposta — tom/complexidade se definem pelo turno atual + vizinhança imediata).
+    classificador_contexto_max: int = 3
+    # Timeout da chamada do classificador; ao estourar, cai no fallback (neutro).
+    classificador_timeout_seg: float = 5.0
+
+    # --- Observabilidade / logs (ring buffer em memória) -------------------------
+    log_buffer_max: int = 500       # nº de registros mantidos em memória
+    log_limite_max: int = 100       # teto de registros por recuperação (disciplina de token)
+    log_msg_max: int = 300          # truncamento da mensagem de cada registro
+
+    # Baldes de estilo por tom (gate). SÃO APENAS os 9 `estilos_resposta` atuais
+    # reparticionados — nenhum estilo novo. O balde `serio` usa os MENOS agressivos
+    # como stopgap (não há registro sério no pool; melhoria futura é só preencher
+    # este balde com estilos sóbrios, sem mexer no mecanismo).
+    estilos_por_tom: dict[str, list[str]] = {
+        "leve": [
+            "deboche seco e curto",
+            "sarcasmo afiado e afrontoso",
+            "empolgação debochada",
+            "frieza cortante",
+            "malícia de duplo sentido",
+            "provocação travessa/flerte zoeiro",
+        ],
+        "neutro": [
+            "ironia blasé/preguiçosa",
+            "deboche carinhoso",
+        ],
+        "serio": [
+            "deboche carinhoso",
+            "fingindo paciência com a pergunta",
+        ],
+    }
+
     tavily_api_key: str
     tavily_search_url: str = "https://api.tavily.com/search"
 
@@ -59,6 +111,24 @@ class Settings(BaseSettings):
     openalex_mailto: str = "jose.pontel@waproject.com.br"
 
     mcp_url: str = "http://localhost:3001/mcp"
+
+    # --- Apple Notes via ponte supergateway (stdio→StreamableHTTP no Mac) ---------
+    # Integração OPCIONAL: só o ADMIN usa (Notes é dado pessoal do dono do Mac);
+    # o gate de identidade vive no tool_filter do toolset (root_agent.py).
+    # `notes_mcp_url` VAZIO = integração DESLIGADA (kill switch) — não registra o
+    # toolset nem adiciona nada ao prompt. Ver docs/PLANO-apple-notes-mcp.md.
+    notes_mcp_url: str = ""                  # ex.: http://<ip-tailnet-do-mac>:8787/mcp
+    notes_mcp_token: str = ""               # bearer p/ a ponte (NUNCA no YAML versionado)
+    # Timeout do handshake/listagem de tools. CURTO de propósito: o ADK resolve
+    # TODOS os toolsets a cada turno (antes do roteador podar), e com o Mac fora do
+    # ar o @retry_on_errors do ADK re-tenta 1x → custo ~2×timeout por turno. ~4s
+    # equilibra cold start do bridge vs. imposto de latência. Esvazie notes_mcp_url
+    # quando souber que o Mac está fora.
+    notes_mcp_timeout_seg: float = 4.0
+    # Leitura do stream de resposta: DEVE ser < 180s (AGENT_TIMEOUT_MS do bot) para
+    # uma busca lenta em NoteStore grande estourar aqui (erro claro) antes de o bot
+    # marcar "❌ Agente fora do ar".
+    notes_mcp_sse_timeout_seg: float = 120.0
 
     # Janela de histórico enviada ao modelo por turno. O ADK, por padrão,
     # replaya a SESSÃO INTEIRA (todos os eventos desde sempre) a cada /chat —

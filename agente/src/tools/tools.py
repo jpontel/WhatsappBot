@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 from repo import memoria_repo, rosto_repo
-from shared import request_context
+from shared import log_buffer, request_context
 from shared.mcp_client import chamar_mcp, chamar_mcp_texto
 from config import settings
 
@@ -1228,3 +1228,36 @@ async def editar_alerta(
     except Exception as exc:  # noqa: BLE001
         return {"erro": f"Falha ao editar lembrete: {exc}"}
     return {"status": "ok"}
+
+
+async def inspecionar_logs(
+    nivel: str = "WARNING",
+    comp: str = "",
+    limite: int = 20,
+    resumo: bool = False,
+) -> dict:
+    """Lê os logs recentes do AGENTE para investigar o estado/erros do sistema.
+
+    Restrito ao ADMIN. Use quando o admin pedir para você olhar seus próprios logs
+    ou investigar por que algo falhou ("por que a figurinha não enviou?", "deu erro
+    em quê?", "como você tá?"). Os logs vêm estruturados, com segredos/números
+    redigidos e truncados — resuma o que achar em vez de despejar tudo.
+
+    Args:
+        nivel: nível MÍNIMO ("DEBUG"|"INFO"|"WARNING"|"ERROR"). Default WARNING.
+        comp: filtra pelo componente (substring do nome do logger, ex.: "chat",
+            "roteador", "classificador"). Vazio = todos.
+        limite: nº máximo de registros (teto no settings).
+        resumo: se True, devolve só a CONTAGEM por tipo (nível+componente) — ótimo
+            para um panorama rápido com pouquíssimo token.
+
+    Returns:
+        `{"svc": "agente", "total": N, "logs": [...]}` ou, em modo resumo,
+        `{"svc": "agente", "total": N, "resumo": {...}}`. `{"erro": ...}` se não-admin.
+    """
+    _proprio, eh_admin, _reg = request_context.atual()
+    if not eh_admin:
+        return {"erro": "Só o admin pode inspecionar os logs."}
+    return log_buffer.recuperar(
+        nivel=nivel, comp=(comp or None), limite=limite, resumo=resumo
+    )
