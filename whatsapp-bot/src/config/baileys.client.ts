@@ -29,7 +29,7 @@ export class BaileysClient {
 
         this.sock.ev.on('creds.update', saveCreds);
 
-        this.sock.ev.on('connection.update', async (update) => {
+        this.sock.ev.on('connection.update', async (update: any) => {
             const { connection, lastDisconnect, qr } = update;
 
             if (
@@ -83,10 +83,10 @@ export class BaileysClient {
         await this.iniciarCliente();
     }
 
-    registrarMensagem(handler) {
-        if(!this.sock && !this.connected) return;
-        console.log(`Desceu algo aqui: ${handler}`);
-        // this.sock.ev.on('messages.upsert', handler);
-    }
+    // registrarMensagem(handler) {
+    //     if(!this.sock && !this.connected) return;
+    //     console.log(`Desceu algo aqui: ${handler}`);
+    //     // this.sock.ev.on('messages.upsert', handler);
+    // }
 
 }

@@ -120,6 +120,16 @@ class Settings(BaseSettings):
     memoria_distancia_dedup: float = 0.15  # abaixo disso, considera duplicata
     memoria_max_por_pessoa: int = 200
 
+    # Recuperação ambiental de memória de TERCEIROS mencionados por nome na
+    # mensagem (só para admin). Teto duplo com memoria_top_k: pior caso de
+    # blocos [sobre <nome>] injetados por turno = memoria_mencoes_max_pessoas
+    # × memoria_top_k. Ver client/mencoes.py.
+    memoria_mencoes_max_pessoas: int = 3
+    # Cache em memória (processo) da lista de pessoas cadastradas, evitando um
+    # round-trip ao MCP do bot em todo turno. Cadastro muda só via /cadastrar
+    # (ação manual do admin) — TTL curto é seguro.
+    mencoes_cache_ttl_seg: float = 60.0
+
     # Memória visual (reconhecimento facial, sqlite-vec — espaço SEPARADO do
     # texto: modelo dedicado de face-recognition, NÃO o gemini-embedding-001).
     rosto_model: str = "buffalo_l"          # pacote InsightFace (buffalo_s = + leve)
