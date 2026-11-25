@@ -114,6 +114,11 @@ _RE_AUDIO = re.compile(
     r")\b"
 )
 _RE_LEMBRETE = re.compile(r"\b(me lembr\w*|lembr[ae] de|me avis\w*|agend\w*|todo dia|toda\s+(segunda|terca|quarta|quinta|sexta|sabado|domingo|semana|hora|noite|manha)|amanha|depois de amanha|daqui a|as \d{1,2}(h|:| horas?| da)|cron)\b")
+# "Você lembra de mim?" / "você lembra de quando..." — pergunta sobre a MEMÓRIA
+# do bot (recall), não pedido de lembrete; mas casa em `lembr[ae] de` de
+# _RE_LEMBRETE. Sem essa exclusão, mesma classe de bug do rosto/cadastro: rota
+# "lembrete" não tem nenhuma tool pra responder sobre lembrança, só agendar.
+_RE_LEMBRETE_RECALL = re.compile(r"\b(voce|vc|tu)\s+lembr\w*\s+de\b")
 _RE_MEMORIA = re.compile(r"\b(anota\w*|anote|lembra que eu|guarda que|memoriz\w*|salva que|registra que|nao esquec\w* que|grava que)\b")
 # Menção EXPLÍCITA à palavra "memória" (sem acento após _norm) combinada com um
 # verbo de registro genérico ("cadastra", "registra", "anota", "guarda", "salva").
@@ -139,6 +144,14 @@ _RE_NOTAS = re.compile(
 )
 _RE_ROSTO_PESSOA = re.compile(r"\b(esse|essa|este|esta)\s+(e|eh)\s+[oa]\b")
 _RE_ROSTO_KW = re.compile(r"\b(cadastr\w*\s+(o|a|esse|essa|rosto)|rosto d|reconhec\w*)\b")
+# Qualquer menção a "rosto" SEM imagem no turno (ex.: "tem o rosto cadastrado de
+# X?") — usado só pra EXCLUIR a rota de cadastro de pessoa (1.1) abaixo: essa
+# rota só serve pra `cadastrar_pessoa` por número, não tem nenhuma tool pra
+# responder sobre rosto, e "cadastrado"/"registrado" bate em _RE_CADASTRO por
+# acidente. Sem a exclusão, vira o mesmo bug do _RE_MEMORIA_EXPLICITA: rota
+# errada, sem tool, LLM aluciona. Cai no fallback (rota=None), que já lida bem
+# com a pergunta (responde em texto, sem tool).
+_RE_ROSTO_MENCAO = re.compile(r"\brosto\w*\b")
 # Cadastro de pessoa pelo número (sem imagem): "cadastra o fulano <número>",
 # "registra esse número como Maria". Só admin (checado em decidir_rota).
 _RE_CADASTRO = re.compile(r"\b(cadastr\w*|registr\w*)\b")
@@ -204,7 +217,9 @@ def decidir_rota(
 
     # 1.1) Cadastro de pessoa pelo número — só admin, SEM imagem (com imagem, o
     # "cadastra" cai na regra de rosto acima). Verbo de cadastrar/registrar.
-    if eh_admin and (not tem_imagem) and _RE_CADASTRO.search(m):
+    # Exclui menção a "rosto" (ver _RE_ROSTO_MENCAO) — sem isso rouba perguntas
+    # tipo "tem o rosto cadastrado de X?" pra uma rota sem tool nenhuma pra isso.
+    if eh_admin and (not tem_imagem) and _RE_CADASTRO.search(m) and not _RE_ROSTO_MENCAO.search(m):
         return "cadastro"
 
     # 2) Edição da imagem do turno (imagem presente + verbo de edição).
@@ -224,7 +239,8 @@ def decidir_rota(
         return "audio"
 
     # 6) Lembrete / agendamento (marcador temporal ou verbo de lembrar).
-    if _RE_LEMBRETE.search(m):
+    # Exclui "você lembra de..." (pergunta sobre recall, não pedido de lembrete).
+    if _RE_LEMBRETE.search(m) and not _RE_LEMBRETE_RECALL.search(m):
         return "lembrete"
 
     # 7) Memória (só faz sentido para pessoa cadastrada).

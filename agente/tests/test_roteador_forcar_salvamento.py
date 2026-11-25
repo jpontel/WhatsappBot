@@ -60,6 +60,42 @@ def test_deve_forcar_com_mencao_explicita_a_memoria():
     assert roteador.deve_forcar_salvamento(msg) is True
 
 
+def test_pergunta_sobre_rosto_sem_imagem_nao_cai_em_cadastro():
+    # Regressão real: "cadastrado" casa com _RE_CADASTRO, mas a pergunta é sobre
+    # ROSTO (sem tool nenhuma pra responder) — tem que cair no fallback, não
+    # na rota "cadastro" (só tem cadastrar_pessoa/buscar_contato).
+    rota = roteador.decidir_rota(
+        "tem o rosto cadastrado de todos esses?", tem_imagem=False, eh_admin=True, registrado=True
+    )
+    assert rota is None
+
+
+def test_cadastro_de_rosto_com_imagem_continua_rota_rosto():
+    # Com imagem, a regra de rosto (1) já intercepta ANTES da de cadastro — não
+    # pode regredir por causa da exclusão acima.
+    rota = roteador.decidir_rota(
+        "cadastra o rosto do joao", tem_imagem=True, eh_admin=True, registrado=True
+    )
+    assert rota == "rosto"
+
+
+def test_pergunta_se_bot_lembra_nao_cai_em_lembrete():
+    # Risco estrutural idêntico ao do rosto: "lembra de" casa em _RE_LEMBRETE,
+    # mas "você lembra de mim?" é pergunta sobre RECALL, não pedido de lembrete
+    # (rota "lembrete" só tem agendar/listar/cancelar/editar_alerta).
+    rota = roteador.decidir_rota(
+        "voce lembra de mim?", tem_imagem=False, eh_admin=False, registrado=True
+    )
+    assert rota is None
+
+
+def test_pedido_de_lembrete_legitimo_continua_funcionando():
+    rota = roteador.decidir_rota(
+        "me lembra de tomar remedio as 8h", tem_imagem=False, eh_admin=False, registrado=True
+    )
+    assert rota == "lembrete"
+
+
 def test_forca_com_frase_trivial_mas_com_3_palavras(monkeypatch):
     # Guard é só "3+ palavras depois", não qualidade do conteúdo — risco
     # residual aceito e documentado no plano.
