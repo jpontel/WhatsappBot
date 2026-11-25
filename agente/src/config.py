@@ -33,6 +33,28 @@ class Settings(BaseSettings):
     gemini_temperature: float = 1.15
     gemini_top_p: float = 0.95
 
+    # Gírias do dicionário de persona (ver INSTRUCTION em client/instruction.py).
+    # Sorteamos um SUBCONJUNTO por turno (`girias_permitidas` no contexto-sistema)
+    # em vez de deixar o modelo escolher livremente entre as 13 — sem isso, os
+    # termos genéricos (ex.: "avisa", "old bbs", que cabem em qualquer frase)
+    # dominam toda resposta. Tunável.
+    girias_disponiveis: list[str] = [
+        "gag",
+        "old bbs",
+        "avisa",
+        "fecho",
+        "de gag em gag a galinha enche o papo",
+        "endar",
+        "bufa",
+        "to curada",
+        "to adoecida",
+        "acrilica",
+        "morta",
+        "bbd",
+        "beloved",
+    ]
+    girias_por_turno: int = 4
+
     # "Temperos" de tom sorteados por turno (um por mensagem) — variam o registro
     # da resposta sem depender do modelo se auto-aleatorizar. Tunável.
     estilos_resposta: list[str] = [

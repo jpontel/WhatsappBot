@@ -80,6 +80,15 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
     # Tempero de tom sorteado por turno: varia o registro da resposta (anti-repetição).
     estilo_da_vez = random.choice(settings.estilos_resposta)
 
+    # Subconjunto de gírias sorteado para o turno (mesmo princípio do
+    # `estilo_da_vez`): evita que o modelo sempre recaia nos termos mais
+    # "genéricos" do dicionário (ex.: "avisa", "old bbs") por serem os únicos
+    # que cabem em qualquer frase.
+    girias_da_vez = random.sample(
+        settings.girias_disponiveis,
+        k=min(settings.girias_por_turno, len(settings.girias_disponiveis)),
+    )
+
     bloco_citacao = ""
     if req.citacao and req.citacao.texto:
         autor = req.citacao.autor or "?"
@@ -111,6 +120,7 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
         f"eh_admin: {eh_admin}\n"
         f"data_hora_atual: {data_hora_atual}\n"
         f"estilo_da_vez: {estilo_da_vez}\n"
+        f"girias_permitidas: {', '.join(girias_da_vez)}\n"
         f"tem_imagem: {'sim' if tem_imagem else 'nao'}\n"
         f"{linha_rosto}"
         f"{bloco_citacao}"
