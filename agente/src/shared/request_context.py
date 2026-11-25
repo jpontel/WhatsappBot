@@ -81,24 +81,33 @@ _tools_permitidas: ContextVar[frozenset[str] | None] = ContextVar(
 _instrucao_suplementar: ContextVar[str] = ContextVar(
     "turno_instrucao_suplementar", default=""
 )
+# True quando o turno deve FORÇAR a chamada de `salvar_memoria` (tool_config
+# ANY) na 1ª chamada ao modelo — ver `roteador.deve_forcar_salvamento` e o
+# callback `roteador.forcar_salvamento`.
+_forcar_salvamento_memoria: ContextVar[bool] = ContextVar(
+    "turno_forcar_salvamento_memoria", default=False
+)
 
 
 def definir_rota(
     rota: str | None,
     tools_permitidas: frozenset[str] | None,
     instrucao_suplementar: str = "",
-) -> tuple[Token, Token, Token]:
+    forcar_salvamento_memoria: bool = False,
+) -> tuple[Token, Token, Token, Token]:
     return (
         _rota.set(rota),
         _tools_permitidas.set(tools_permitidas),
         _instrucao_suplementar.set(instrucao_suplementar),
+        _forcar_salvamento_memoria.set(forcar_salvamento_memoria),
     )
 
 
-def limpar_rota(tokens: tuple[Token, Token, Token]) -> None:
+def limpar_rota(tokens: tuple[Token, Token, Token, Token]) -> None:
     _rota.reset(tokens[0])
     _tools_permitidas.reset(tokens[1])
     _instrucao_suplementar.reset(tokens[2])
+    _forcar_salvamento_memoria.reset(tokens[3])
 
 
 def rota_atual() -> str | None:
@@ -113,3 +122,8 @@ def tools_permitidas_atual() -> frozenset[str] | None:
 def instrucao_suplementar_atual() -> str:
     """Sufixo de instrução do turno (orientação da rota), ou "" se nada a injetar."""
     return _instrucao_suplementar.get()
+
+
+def forcar_salvamento_memoria_atual() -> bool:
+    """True se o turno deve forçar a chamada de `salvar_memoria` (1ª chamada)."""
+    return _forcar_salvamento_memoria.get()

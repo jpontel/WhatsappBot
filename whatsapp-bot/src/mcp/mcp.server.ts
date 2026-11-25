@@ -13,7 +13,7 @@ import { ENV } from "../config/env.js";
 import { z } from 'zod';
 import { agendamentoRepository, mesmoSolicitante } from "../repository/agendamento.repository.js";
 import { schedulerService } from "../services/scheduler.service.js";
-import { buscarPorNome, buscarPorNumero, buscarPorLid, registrarPessoa, type Pessoa } from "../repository/pessoa.repository.js";
+import { buscarPorNome, buscarPorNumero, buscarPorLid, listarTodos, registrarPessoa, type Pessoa } from "../repository/pessoa.repository.js";
 import { resolverNumero, resolverLid, normalizarNonoDigito } from "../core/identidade.js";
 import { isJidGroup, isLidUser, isPnUser, jidNormalizedUser } from "@whiskeysockets/baileys";
 
@@ -277,7 +277,7 @@ function negarSeSemPermissao(
 ): string | null {
     if (!ag) return null;
     if (ehAdmin || mesmoSolicitante(ag, solicitante)) return null;
-    return `❌ Esse lembrete (id ${ag.id}) não é seu — só quem criou (ou o admin) pode mexer nele.`;
+    return `❌ Esse lembrete (id ${ag.id}) não é seu!! só quem criou pode mexer nele.`;
 }
 
 export async function cancelarAgendamentoHandler(
@@ -351,6 +351,15 @@ export async function buscarContatoHandler(
         return ok(JSON.stringify(contatos));
     } catch (error) {
         return fail(`❌ Falha ao buscar contato: ${(error as Error).message}`);
+    }
+}
+
+export async function listarPessoasHandler(): Promise<McpToolResult> {
+    try {
+        const pessoas = listarTodos().map((p) => ({ nome: p.nome, jid: p.numero }));
+        return ok(JSON.stringify(pessoas));
+    } catch (error) {
+        return fail(`❌ Falha ao listar pessoas: ${(error as Error).message}`);
     }
 }
 
@@ -739,6 +748,16 @@ function inicializarServidor() {
             }
         },
         buscarContatoHandler
+    );
+
+    server.registerTool(
+        "listar_pessoas",
+        {
+            description: "Lista TODAS as pessoas cadastradas (nome e jid), sem filtro. Use para resolver menções a " +
+                "terceiros cadastrados mencionados por nome em uma mensagem. Retorna JSON [{nome, jid}].",
+            inputSchema: {}
+        },
+        listarPessoasHandler
     );
 
     server.registerTool(
