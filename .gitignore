@@ -15,3 +15,9 @@ linode_secondary/
 
 ## Token de conexão com o repo do github
 docs/personal-token-github.md
+
+# Bloco de notas pessoal do dev (não versionar)
+/todo.md
+
+# Detalhes operacionais de produção (IPs, telefones, IDs) — repo público
+docs/OPS-PROD.local.md

@@ -4,13 +4,16 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from api import chat, health
+from api import chat, health, logs
 from client.retry_pendencias import loop_retry
+from shared import log_buffer
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+# Captura todos os logger.* num ring buffer em memória (observabilidade /logs).
+log_buffer.instalar()
 
 
 @asynccontextmanager
@@ -30,3 +33,4 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="agente", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(chat.router)
+app.include_router(logs.router)

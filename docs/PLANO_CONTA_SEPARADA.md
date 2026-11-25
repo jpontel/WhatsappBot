@@ -28,14 +28,14 @@ Hoje o bot loga na **minha própria conta pessoal** via *pairing code* usando o 
 
 **`.env`** — variáveis relevantes:
 ```
-TELEFONE_CELULAR=REMOVIDO_TEL          # número logado hoje (a "minha conta")
-TELEFONE_CELULAR_PROD=REMOVIDO_TEL     # número definido, mas NÃO usado pelo index.ts
+TELEFONE_CELULAR=55DDNNNNNNNNN          # número logado hoje (a "minha conta")
+TELEFONE_CELULAR_PROD=55DD9NNNNNNNN     # número definido, mas NÃO usado pelo index.ts
 ```
 > O `index.ts` só lê `TELEFONE_CELULAR`. O `..._PROD` está órfão (nenhum código o consome).
 
 **`src/core/dispatcher.ts`** — filtro de mensagens:
 ```ts
-const JID_IGNORADO = 'REMOVIDO_TEL';   // dispatcher.ts:6
+const JID_IGNORADO = '55DD9NNNNNNNN';   // dispatcher.ts:6
 // ...
 if (
     msg.key.remoteJid === JID_IGNORADO              // dispatcher.ts:31  (BUG latente)
@@ -44,13 +44,13 @@ if (
     return;
 }
 ```
-- **Bug latente:** `remoteJid` vem no formato `REMOVIDO_TEL@s.whatsapp.net`, mas a comparação é com a string crua `'REMOVIDO_TEL'`. Logo **esse `if` nunca casa** — o filtro está quebrado e o número não é de fato ignorado hoje.
+- **Bug latente:** `remoteJid` vem no formato `55DD9NNNNNNNN@s.whatsapp.net`, mas a comparação é com a string crua `'55DD9NNNNNNNN'`. Logo **esse `if` nunca casa** — o filtro está quebrado e o número não é de fato ignorado hoje.
 - Pior: o `return` (em vez de `continue`) aborta o lote inteiro de mensagens, não só a mensagem atual.
 - **Não há filtro de `fromMe`** no dispatcher. Toda mensagem que vira comando é executada, inclusive as minhas próprias (`fromMe=true`). É exatamente por isso que o bot "age como se fosse eu".
 
 **`src/dto/comandos.dto.ts`** — já existe um campo previsto para `fromMe` (comentado como "mensagem partiu da própria conta do admin"), mas o dispatcher não o popula nem o usa.
 
-**`src/config/baileys.client.ts`** — arquivo legado/vestígio com `const number = 'REMOVIDO_TEL'` hardcoded; não está no fluxo ativo (o entrypoint é `index.ts`). Citado só para inventário.
+**`src/config/baileys.client.ts`** — arquivo legado/vestígio com `const number = '55DD9NNNNNNNN'` hardcoded; não está no fluxo ativo (o entrypoint é `index.ts`). Citado só para inventário.
 
 ---
 
@@ -111,13 +111,13 @@ Se um dia o objetivo virar "zero risco de ban / produção", aí sim migrar para
 
 ### Passo 1 — Trocar o número no `.env`
 Arquivo: `/Users/admin/repositorio/Pessoal/bot/whatsapp-bot/.env`
-- Apontar `TELEFONE_CELULAR` para o **novo número do bot** (substituir `REMOVIDO_TEL`).
+- Apontar `TELEFONE_CELULAR` para o **novo número do bot** (substituir `55DDNNNNNNNNN`).
 - Recomendo guardar o número pessoal numa nova variável, ex. `ADMIN_JID`, para o filtro de `fromMe` (ver Passo 3). Algo como:
   ```
   TELEFONE_CELULAR=55DDDNUMERODOBOT       # número dedicado do bot (pairing)
-  ADMIN_JID=REMOVIDO_TEL@s.whatsapp.net   # seu número pessoal, p/ identificar o "admin"
+  ADMIN_JID=55DDNNNNNNNNN@s.whatsapp.net   # seu número pessoal, p/ identificar o "admin"
   ```
-  > A variável órfã `TELEFONE_CELULAR_PROD=REMOVIDO_TEL` pode ser removida (não é lida por ninguém no fluxo ativo).
+  > A variável órfã `TELEFONE_CELULAR_PROD=55DD9NNNNNNNN` pode ser removida (não é lida por ninguém no fluxo ativo).
 
 ### Passo 2 — Limpar a sessão antiga e parear o novo número
 1. Parar o bot.
@@ -134,7 +134,7 @@ Nenhuma alteração de código é necessária nos passos 1–2 além do `.env` �
 ### Passo 3 — Ajustes de código no dispatcher
 Arquivo: `/Users/admin/repositorio/Pessoal/bot/whatsapp-bot/src/core/dispatcher.ts`
 
-**3a. Corrigir o filtro quebrado (`JID_IGNORADO`).** Hoje compara `remoteJid` (com `@s.whatsapp.net`) contra a string crua `'REMOVIDO_TEL'`, então nunca casa. Além disso usa `return` (aborta o lote) onde deveria usar `continue` (pula só a mensagem). Decidir:
+**3a. Corrigir o filtro quebrado (`JID_IGNORADO`).** Hoje compara `remoteJid` (com `@s.whatsapp.net`) contra a string crua `'55DD9NNNNNNNN'`, então nunca casa. Além disso usa `return` (aborta o lote) onde deveria usar `continue` (pula só a mensagem). Decidir:
 - Se o objetivo do `JID_IGNORADO` era ignorar mensagens de/para um número específico, normalizar a comparação (comparar só os dígitos do JID) **e** trocar `return` por `continue`.
 - Se não há mais motivo para esse filtro (o número era o antigo `..._PROD`), **remover** `JID_IGNORADO` e o `if` correspondente — mais KISS.
 
@@ -156,7 +156,7 @@ for (const msg of messageDto.messages) {
 **3c. (Opcional) Popular `dto.fromMe`.** O DTO em `src/dto/comandos.dto.ts` já prevê o campo. Se algum comando precisar saber quem mandou, passar `fromMe: !!msg.key.fromMe` e/ou comparar `jid` com `ADMIN_JID` no `ComandoExecutarDto`.
 
 ### Passo 4 — Limpeza de vestígios (opcional, recomendado)
-- Remover o hardcode `const number = 'REMOVIDO_TEL'` em `src/config/baileys.client.ts` (arquivo legado fora do fluxo) ou apagar o arquivo se confirmado morto.
+- Remover o hardcode `const number = '55DD9NNNNNNNN'` em `src/config/baileys.client.ts` (arquivo legado fora do fluxo) ou apagar o arquivo se confirmado morto.
 - Remover `TELEFONE_CELULAR_PROD` do `.env`.
 
 ### Passo 5 — Validar

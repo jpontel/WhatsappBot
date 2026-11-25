@@ -71,13 +71,17 @@ export class LastfmService {
 
             if(imagemInvalida) {
 
-                console.log(`Imagem do albúm ${nome} não encontrada. Buscando no itunes...`);
-                const capaItunes = await this.buscarCapaItunes(artista, nome);
+                // Cascata de fallback: Last.fm (sem capa) → iTunes → Deezer. O
+                // Deezer (API pública, sem chave) tem boa cobertura de clássico/
+                // trilha/edições verbosas, justo onde o iTunes costuma falhar.
+                console.log(`Imagem do albúm ${nome} não encontrada. Buscando no itunes/deezer...`);
+                imageUrl = await this.buscarCapaItunes(artista, nome)
+                        || await this.buscarCapaDeezer(artista, nome)
+                        || null;
 
-                if(capaItunes) 
-                    console.log("Capa encontrada! Enviando...");
-
-                imageUrl = capaItunes ? capaItunes : null;
+                console.log(imageUrl
+                    ? `Capa de "${nome}" recuperada! ✅`
+                    : `Sem capa pra "${nome}" em nenhuma fonte ✋`);
 
             }
 
@@ -163,6 +167,25 @@ export class LastfmService {
             }
 
             console.log("Album não encontrado no itunes X_X");
+            return null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async buscarCapaDeezer(artista: any, album: any) {
+        try {
+            // Termo plano (artista + álbum): o ranking do Deezer casa melhor assim
+            // do que com match exato `album:"..."` (que falha em título verboso).
+            const q = encodeURIComponent(`${artista} ${album}`);
+            const { data } = await axios.get(`https://api.deezer.com/search/album?q=${q}&limit=1`);
+
+            const capa = data?.data?.[0];
+            if (capa) {
+                return capa.cover_xl || capa.cover_big || capa.cover_medium || null;
+            }
+
+            console.log("Album não encontrado no deezer X_X");
             return null;
         } catch (error) {
             return null;
