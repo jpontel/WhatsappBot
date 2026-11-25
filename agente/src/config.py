@@ -33,6 +33,28 @@ class Settings(BaseSettings):
     gemini_temperature: float = 1.15
     gemini_top_p: float = 0.95
 
+    # Gírias do dicionário de persona (ver INSTRUCTION em client/instruction.py).
+    # Sorteamos um SUBCONJUNTO por turno (`girias_permitidas` no contexto-sistema)
+    # em vez de deixar o modelo escolher livremente entre as 13 — sem isso, os
+    # termos genéricos (ex.: "avisa", "old bbs", que cabem em qualquer frase)
+    # dominam toda resposta. Tunável.
+    girias_disponiveis: list[str] = [
+        "gag",
+        "old bbs",
+        "avisa",
+        "fecho",
+        "de gag em gag a galinha enche o papo",
+        "endar",
+        "bufa",
+        "to curada",
+        "to adoecida",
+        "acrilica",
+        "morta",
+        "bbd",
+        "beloved",
+    ]
+    girias_por_turno: int = 4
+
     # "Temperos" de tom sorteados por turno (um por mensagem) — variam o registro
     # da resposta sem depender do modelo se auto-aleatorizar. Tunável.
     estilos_resposta: list[str] = [
@@ -97,6 +119,16 @@ class Settings(BaseSettings):
     memoria_distancia_max: float = 1.0   # acima disso, irrelevante p/ injetar
     memoria_distancia_dedup: float = 0.15  # abaixo disso, considera duplicata
     memoria_max_por_pessoa: int = 200
+
+    # Recuperação ambiental de memória de TERCEIROS mencionados por nome na
+    # mensagem (só para admin). Teto duplo com memoria_top_k: pior caso de
+    # blocos [sobre <nome>] injetados por turno = memoria_mencoes_max_pessoas
+    # × memoria_top_k. Ver client/mencoes.py.
+    memoria_mencoes_max_pessoas: int = 3
+    # Cache em memória (processo) da lista de pessoas cadastradas, evitando um
+    # round-trip ao MCP do bot em todo turno. Cadastro muda só via /cadastrar
+    # (ação manual do admin) — TTL curto é seguro.
+    mencoes_cache_ttl_seg: float = 60.0
 
     # Memória visual (reconhecimento facial, sqlite-vec — espaço SEPARADO do
     # texto: modelo dedicado de face-recognition, NÃO o gemini-embedding-001).

@@ -13,7 +13,7 @@ from repo import memoria_repo, pendencias_repo, rosto_repo
 from shared import request_context
 from shared.mcp_client import chamar_mcp
 from shared.session_locks import lock_da_sessao
-from client import roteador
+from client import mencoes, roteador
 from client.root_agent import runner
 from client.session import APP_NAME, session_service
 from config import settings
@@ -80,6 +80,15 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
     # Tempero de tom sorteado por turno: varia o registro da resposta (anti-repetição).
     estilo_da_vez = random.choice(settings.estilos_resposta)
 
+    # Subconjunto de gírias sorteado para o turno (mesmo princípio do
+    # `estilo_da_vez`): evita que o modelo sempre recaia nos termos mais
+    # "genéricos" do dicionário (ex.: "avisa", "old bbs") por serem os únicos
+    # que cabem em qualquer frase.
+    girias_da_vez = random.sample(
+        settings.girias_disponiveis,
+        k=min(settings.girias_por_turno, len(settings.girias_disponiveis)),
+    )
+
     bloco_citacao = ""
     if req.citacao and req.citacao.texto:
         autor = req.citacao.autor or "?"
@@ -88,9 +97,11 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
             f"mensagem_citada_texto: {req.citacao.texto}\n"
         )
 
+    # Pode conter mais de um bloco "[sobre <nome>]" — do remetente e/ou de
+    # terceiros cadastrados mencionados na mensagem (só para admin).
     bloco_memoria = ""
     if memoria_texto:
-        bloco_memoria = f"\n[memória-do-usuário]\n{memoria_texto}\n"
+        bloco_memoria = f"\n[memórias-recuperadas]\n{memoria_texto}\n"
 
     # Sinaliza explicitamente que há uma imagem editável no turno (anexada ou
     # citada). O modelo já a "vê" pela inline_data, mas o flag deixa a decisão
@@ -111,6 +122,7 @@ def _montar_conteudo(req: ChatRequest, memoria_texto: str = "", rosto_texto: str
         f"eh_admin: {eh_admin}\n"
         f"data_hora_atual: {data_hora_atual}\n"
         f"estilo_da_vez: {estilo_da_vez}\n"
+        f"girias_permitidas: {', '.join(girias_da_vez)}\n"
         f"tem_imagem: {'sim' if tem_imagem else 'nao'}\n"
         f"{linha_rosto}"
         f"{bloco_citacao}"
@@ -145,23 +157,60 @@ async def _garantir_sessao(chat_id: str) -> None:
         )
 
 
-async def _recuperar_memorias(req: ChatRequest) -> str:
-    """Top-K memórias relevantes da pessoa (só cadastrada) para a mensagem atual.
+async def _bloco_memoria(numero: str, emb: list[float], rotulo: str) -> str:
+    """Bloco "[sobre <rotulo>]\n- (categoria) conteudo\n..." ou "" se sem fatos."""
+    try:
+        if await memoria_repo.contar(numero) == 0:
+            return ""
+        achados = await memoria_repo.top_k(numero, emb, settings.memoria_top_k)
+    except Exception:  # noqa: BLE001
+        logger.exception("Falha ao recuperar memórias de %s", numero)
+        return ""
+    if not achados:
+        return ""
+    linhas = "\n".join(f"- ({a['categoria']}) {a['conteudo']}" for a in achados)
+    return f"[sobre {rotulo}]\n{linhas}\n"
 
-    Falha de memória nunca derruba o turno — devolve "" e segue.
+
+async def _recuperar_memorias(req: ChatRequest) -> str:
+    """Memórias relevantes do remetente + de TERCEIROS CADASTRADOS mencionados
+    pelo nome na mensagem (só quando quem pergunta é o admin — mesma regra de
+    permissão de `_alvo_memoria` em tools/tools.py: só o admin consulta/gerencia
+    memória de outra pessoa).
+
+    Um único embedding da mensagem é computado e reaproveitado para todas as
+    buscas do turno (remetente + cada pessoa mencionada) — evita N chamadas de
+    embedding por turno. Falha de memória nunca derruba o turno — devolve "" e
+    segue. Teto: `settings.memoria_mencoes_max_pessoas` × `settings.memoria_top_k`
+    (ver [SEGURANÇA] no CLAUDE.md do agente).
     """
     rem = req.remetente
-    if not (rem and rem.registrado and rem.numero):
+    sou_registrado = bool(rem and rem.registrado and rem.numero)
+    eh_admin = bool(rem and rem.ehAdmin)
+
+    if not sou_registrado and not eh_admin:
         return ""
+
     try:
-        if await memoria_repo.contar(rem.numero) == 0:
-            return ""
         emb = await memoria_repo.gerar_embedding(req.mensagem)
-        achados = await memoria_repo.top_k(rem.numero, emb, settings.memoria_top_k)
     except Exception:  # noqa: BLE001
-        logger.exception("Falha ao recuperar memórias de %s", req.chatId)
+        logger.exception("Falha ao gerar embedding da mensagem de %s", req.chatId)
         return ""
-    return "\n".join(f"- ({a['categoria']}) {a['conteudo']}" for a in achados)
+
+    blocos: list[str] = []
+    if sou_registrado:
+        blocos.append(await _bloco_memoria(rem.numero, emb, "você"))
+
+    if eh_admin:
+        try:
+            terceiros = await mencoes.pessoas_mencionadas(req.mensagem, rem.numero if rem else None)
+        except Exception:  # noqa: BLE001
+            logger.exception("Falha ao detectar pessoas mencionadas em %s", req.chatId)
+            terceiros = []
+        for pessoa in terceiros:
+            blocos.append(await _bloco_memoria(pessoa["jid"], emb, pessoa["nome"]))
+
+    return "\n".join(b for b in blocos if b)
 
 
 async def _reconhecer_rosto(req: ChatRequest) -> str:
@@ -244,8 +293,9 @@ async def chat(req: ChatRequest) -> ChatResponse:
             # Sufixo de instrução por rota (orientação específica; ou tudo no
             # fallback). Injetado no system_instruction pelo before_model_callback.
             instr_suf = roteador.instrucao_suplementar(req.mensagem, rota)
+            forcar = roteador.deve_forcar_salvamento(req.mensagem) if rota == "memoria" else False
             token_rota = request_context.definir_rota(
-                rota, roteador.tools_da_rota(rota), instr_suf
+                rota, roteador.tools_da_rota(rota), instr_suf, forcar
             )
             # Reação só em turno de AÇÃO (o usuário pediu pra FAZER algo): ⏳ ao
             # iniciar, 💅 ao concluir. Conversa normal NÃO ganha reação nenhuma.

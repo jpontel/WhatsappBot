@@ -8,7 +8,7 @@ from client.contexto import injetar_contexto
 from client.fallback_model import FallbackGemini
 from client.historico import limitar_historico
 from client.instruction import INSTRUCTION, NOME_BOT
-from client.roteador import filtrar_tools, injetar_instrucao
+from client.roteador import filtrar_tools, forcar_salvamento, injetar_instrucao
 from client.session import APP_NAME, session_service
 from tools.tools import (
     agendar_alerta,
@@ -89,14 +89,19 @@ def _antes_do_modelo(callback_context, llm_request):  # noqa: ANN001 - assinatur
 
     1. `limitar_historico` — corta a janela de histórico enviada ao modelo;
     2. `filtrar_tools` — restringe as ferramentas à rota decidida (roteador v0);
-    3. `injetar_instrucao` — concatena a orientação da rota no system_instruction;
-    4. `injetar_contexto` — insere o bloco [contexto-recente] (efêmero) antes do
+    3. `forcar_salvamento` — na rota "memoria" com gatilho de força ativo,
+       obriga a chamada de `salvar_memoria` (tool_config ANY) na 1ª chamada do
+       turno. Depois de `filtrar_tools` porque `allowed_function_names` precisa
+       ser subconjunto das tools já filtradas pela rota.
+    4. `injetar_instrucao` — concatena a orientação da rota no system_instruction;
+    5. `injetar_contexto` — insere o bloco [contexto-recente] (efêmero) antes do
        gatilho. DEPOIS do corte de histórico para não ser descartado por ele.
 
     Todos mutam o `llm_request` e retornam None (não substituem a resposta).
     """
     limitar_historico(callback_context, llm_request)
     filtrar_tools(callback_context, llm_request)
+    forcar_salvamento(callback_context, llm_request)
     injetar_instrucao(callback_context, llm_request)
     injetar_contexto(callback_context, llm_request)
     return None

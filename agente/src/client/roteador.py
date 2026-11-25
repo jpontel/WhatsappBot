@@ -173,6 +173,63 @@ def decidir_rota(
     return None
 
 
+def deve_forcar_salvamento(mensagem: str) -> bool:
+    """True se o turno deve FORÇAR a chamada de `salvar_memoria` (tool_config
+    ANY) — gatilho da rota "memoria" (`_RE_MEMORIA`) com conteúdo substancial
+    sobrando após o verbo-gatilho (≥3 palavras), para não forçar em
+    falsos-positivos triviais (ex.: "não esquece que hoje é sexta" sozinho).
+    Opera sobre a mensagem NORMALIZADA de ponta a ponta (match e fatiamento),
+    evitando o bug de índice de misturar normalizada com original.
+    """
+    m = _norm(mensagem)
+    match = _RE_MEMORIA.search(m)
+    if not match:
+        return False
+    resto = m[match.end():].split()
+    return len(resto) >= 3
+
+
+def _turno_ja_executou_tool(llm_request) -> bool:  # noqa: ANN001 - assinatura ADK
+    """True se algum Part de algum Content do turno já tem function_response —
+    ou seja, é a 2ª (ou posterior) chamada ao modelo dentro do MESMO turno
+    (depois que uma tool já executou). `function_response` é o atributo real
+    do `types.Part` (snake_case); `functionResponse` é só o alias de
+    serialização JSON e NUNCA existe como atributo de instância Python.
+    """
+    for content in (getattr(llm_request, "contents", None) or []):
+        for part in (getattr(content, "parts", None) or []):
+            if getattr(part, "function_response", None):
+                return True
+    return False
+
+
+def forcar_salvamento(callback_context, llm_request) -> None:  # noqa: ANN001 - assinatura ADK
+    """before_model_callback: na 1ª chamada do turno, se o gatilho de força
+    estiver ativo (`request_context.forcar_salvamento_memoria_atual()`), obriga
+    o modelo a chamar `salvar_memoria` via `tool_config` (function calling mode
+    ANY, restrito a essa tool). NÃO força na 2ª chamada do turno (depois que a
+    tool já executou) — senão o modelo tentaria chamar de novo em vez de
+    responder em texto, travando a confirmação final ao usuário.
+    """
+    if not request_context.forcar_salvamento_memoria_atual():
+        return None
+    if _turno_ja_executou_tool(llm_request):
+        return None
+
+    config = getattr(llm_request, "config", None)
+    if not config:
+        return None
+
+    config.tool_config = types.ToolConfig(
+        function_calling_config=types.FunctionCallingConfig(
+            mode=types.FunctionCallingConfigMode.ANY,
+            allowed_function_names=["salvar_memoria"],
+        )
+    )
+    logger.info("Roteador: forçando chamada de salvar_memoria (tool_config=ANY)")
+    return None
+
+
 def tools_da_rota(rota: str | None) -> frozenset[str] | None:
     """Conjunto de tools permitidas na rota (∪ base), ou None = sem filtro."""
     if rota is None:
