@@ -106,7 +106,7 @@ def test_adicionar_pessoa_cadastrada_em_foto_libera_tool_de_pessoas():
     assert rota == "edicao_visual"
     tools_permitidas = roteador.tools_da_rota(rota)
     assert "gerar_e_enviar_imagem_com_pessoas" in tools_permitidas
-    assert "buscar_contato" in tools_permitidas
+    assert "buscar_contato" not in tools_permitidas
 
 
 def test_forca_com_frase_trivial_mas_com_3_palavras(monkeypatch):

@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import io
 import json
@@ -945,41 +946,85 @@ async def esquecer_rosto(numero: str) -> dict:
     return {"status": "ok", "removidos": n} if n else {"erro": "Essa pessoa não tem rosto cadastrado."}
 
 
-async def gerar_e_enviar_imagem_com_pessoas(prompt: str, numeros: list[str], jid: str) -> dict:
+def _melhor_contato(nome_buscado: str, contatos: list[dict]) -> dict | None:
+    """Espelha a lógica de mcp.server.ts:melhorPessoa (igualdade exata
+    case-insensitive > parcial único > ambíguo), aplicada sobre a lista que
+    `buscar_contato` já retorna — sem precisar mexer no lado TypeScript."""
+    if len(contatos) == 1:
+        return contatos[0]
+    alvo = nome_buscado.strip().lower()
+    exatos = [c for c in contatos if c["nome"].strip().lower() == alvo]
+    if len(exatos) == 1:
+        return exatos[0]
+    return None  # 2+ exatos, ou 0 exatos com 2+ parciais => ambíguo de verdade
+
+
+async def gerar_e_enviar_imagem_com_pessoas(
+    prompt: str, nomes: list[str], jid: str, incluir_remetente: bool = False
+) -> dict:
     """CRIA uma imagem com pessoas CADASTRADAS (usa a foto do rosto delas) e ENVIA.
 
     Use para "faça/cria uma imagem com o X e a Y" (cena nova) OU para "adiciona
     o X nessa foto" quando HÁ uma imagem no turno (`tem_imagem=sim`) — nesse
     caso a foto do turno entra AUTOMATICAMENTE como referência extra, junto com
     os rostos cadastrados, e o pedido vira "insira essas pessoas NESSA foto"
-    (preservando a cena original o máximo possível). Descubra o `numero` de
-    CADA pessoa com `buscar_contato(nome)` ANTES e passe a lista em `numeros`.
-    `prompt` = a cena/alteração desejada (pt-BR); `jid` = `usuario_jid`. Não
-    retorna a imagem (já é enviada) — depois confirme em UMA frase curta.
+    (preservando a cena original o máximo possível). Passe em `nomes` os nomes
+    das pessoas TAL COMO o usuário falou — a tool resolve e valida cada um
+    sozinha (não chame `buscar_contato` antes). Se o pedido incluir o próprio
+    usuário ("comigo", "eu", "a gente"), use `incluir_remetente=True` em vez de
+    tentar achar o nome dele. `prompt` = a cena/alteração desejada (pt-BR);
+    `jid` = `usuario_jid`. Não retorna a imagem (já é enviada) — depois
+    confirme em UMA frase curta.
 
     Só funciona para quem tem ROSTO cadastrado COM FOTO. Se faltar a foto de
     alguém, o retorno diz quem — peça para cadastrar o rosto dessa pessoa.
 
     Returns:
-        `{"status": "ok"}` ou `{"erro": "..."}` (sem foto / bloqueio do filtro).
+        `{"status": "ok"}` ou `{"erro": "..."}` (nome não encontrado/ambíguo,
+        sem foto, bloqueio do filtro).
     """
     _proprio, _eh_admin, registrado = request_context.atual()
     if not registrado:
         return {"erro": "Esse recurso é só para pessoas cadastradas."}
-    nums = [n.strip() for n in (numeros or []) if (n or "").strip()]
-    if not nums:
-        return {"erro": "Preciso do número de pelo menos uma pessoa — use buscar_contato antes."}
-    nums = nums[: settings.rosto_gen_max_pessoas]
+
+    nomes_limpos = [n.strip() for n in (nomes or []) if (n or "").strip()]
+    if not nomes_limpos and not incluir_remetente:
+        return {"erro": "Preciso do nome de pelo menos uma pessoa."}
+
+    alvos: list[tuple[str, str]] = []  # (numero, rótulo-pra-mensagem-de-erro)
+    if incluir_remetente:
+        if not _proprio:
+            return {"erro": "Não consegui identificar seu número."}
+        alvos.append((_proprio, "você"))
+
+    # Teto aplicado à lista FINAL (remetente + nomeados) — não só aos nomeados.
+    vagas = max(settings.rosto_gen_max_pessoas - len(alvos), 0)
+    nomes_limpos = nomes_limpos[:vagas]
+
+    # Resolve todos os nomes em PARALELO, reaproveitando buscar_contato (mesmo
+    # parse/tratamento de erro de chamar_mcp_texto, sem duplicar).
+    resultados = await asyncio.gather(*(buscar_contato(nome) for nome in nomes_limpos))
+    for nome, res in zip(nomes_limpos, resultados):
+        if "erro" in res:
+            return {"erro": f"Falha ao resolver '{nome}': {res['erro']}"}
+        contatos = res.get("contatos", [])
+        if not contatos:
+            return {"erro": f"Não encontrei '{nome}' cadastrado(a) — confirme o nome ou cadastre antes."}
+        melhor = _melhor_contato(nome, contatos)
+        if melhor is None:
+            opcoes = ", ".join(f"{c['nome']} ({c['jid'].split('@')[0]})" for c in contatos)
+            return {"erro": f"Mais de uma pessoa bate com '{nome}' ({opcoes}) — peça pra especificar o número."}
+        alvos.append((melhor["jid"], melhor["nome"]))
+
+    nums = [numero for numero, _rotulo in alvos]
     try:
         fotos = await rosto_repo.fotos_de(nums)
     except Exception as exc:  # noqa: BLE001
         return {"erro": f"Falha ao recuperar as fotos: {exc}"}
-    if not fotos:
-        return {"erro": "Nenhuma dessas pessoas tem rosto cadastrado com foto — cadastre o rosto (com a foto) primeiro."}
-    # Compara por parte-de-usuário: o LLM pode passar o número com ou sem o
-    # sufixo @s.whatsapp.net (foi o que quebrava entre grupos).
+    # Compara por parte-de-usuário: o número pode vir com ou sem o sufixo
+    # @s.whatsapp.net (foi o que quebrava entre grupos).
     achados = {rosto_repo.normalizar_numero(f["numero"]) for f in fotos}
-    faltando = [n for n in nums if rosto_repo.normalizar_numero(n) not in achados]
+    faltando = [rotulo for numero, rotulo in alvos if rosto_repo.normalizar_numero(numero) not in achados]
     if faltando:
         return {"erro": f"Sem foto cadastrada para: {', '.join(faltando)}. Cadastre o rosto dessas pessoas (com foto) antes."}
     # Foto do turno (se houver) entra PRIMEIRO na lista de referências — é a cena
