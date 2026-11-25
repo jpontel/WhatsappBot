@@ -8,6 +8,11 @@ Cobre:
   chamada do turno — usando `google.genai.types.Part`/`Content` DE VERDADE
   (não um dublê com atributo solto), para não escapar de uma regressão no
   nome do atributo (`function_response`, snake_case).
+- `decidir_rota`: menção explícita a "memória" + verbo de registro (ex.:
+  "cadastre na memória...") tem que ganhar da rota "cadastro" — regressão real
+  observada em produção: `_RE_CADASTRO` casava "cadastre" antes de chegar na
+  checagem de memória, a rota "cadastro" não expõe `salvar_memoria`, e o LLM
+  acabava alucinando uma tool inexistente (`adicionar_memoria`).
 """
 
 from google.adk.models import LlmRequest
@@ -32,6 +37,27 @@ def test_nao_forca_sem_conteudo_substancial():
 
 def test_nao_forca_mensagem_sem_gatilho():
     assert roteador.deve_forcar_salvamento("oi, como você está?") is False
+
+
+def test_cadastre_na_memoria_prioriza_rota_memoria_sobre_cadastro():
+    # Regressão real: "cadastre" casa com _RE_CADASTRO, mas a frase explicitamente
+    # pede salvar NA MEMÓRIA — tem que ganhar da rota "cadastro".
+    msg = "cadastre na memoria as informações para cada pessoa cadastrada: 1. edimilson: tem um gato chamado Zuko"
+    rota = roteador.decidir_rota(msg, tem_imagem=False, eh_admin=True, registrado=True)
+    assert rota == "memoria"
+    assert "salvar_memoria" in roteador.tools_da_rota(rota)
+
+
+def test_cadastro_de_pessoa_nova_continua_rota_cadastro():
+    # Sem menção a "memória", o verbo de cadastro continua roteando normal.
+    msg = "cadastra o fulano com o numero 5541999999999"
+    rota = roteador.decidir_rota(msg, tem_imagem=False, eh_admin=True, registrado=True)
+    assert rota == "cadastro"
+
+
+def test_deve_forcar_com_mencao_explicita_a_memoria():
+    msg = "cadastre na memoria as informações: ele tem um gato chamado Zuko e adora cobol"
+    assert roteador.deve_forcar_salvamento(msg) is True
 
 
 def test_forca_com_frase_trivial_mas_com_3_palavras(monkeypatch):

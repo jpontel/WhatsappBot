@@ -115,6 +115,15 @@ _RE_AUDIO = re.compile(
 )
 _RE_LEMBRETE = re.compile(r"\b(me lembr\w*|lembr[ae] de|me avis\w*|agend\w*|todo dia|toda\s+(segunda|terca|quarta|quinta|sexta|sabado|domingo|semana|hora|noite|manha)|amanha|depois de amanha|daqui a|as \d{1,2}(h|:| horas?| da)|cron)\b")
 _RE_MEMORIA = re.compile(r"\b(anota\w*|anote|lembra que eu|guarda que|memoriz\w*|salva que|registra que|nao esquec\w* que|grava que)\b")
+# Menção EXPLÍCITA à palavra "memória" (sem acento após _norm) combinada com um
+# verbo de registro genérico ("cadastra", "registra", "anota", "guarda", "salva").
+# Cobre o caso em que o usuário usa o MESMO verbo de _RE_CADASTRO pra pedir
+# salvamento de memória (ex.: "cadastre na memória as informações de fulano...")
+# — sem isso, _RE_CADASTRO (checado ANTES na ordem de decidir_rota) rouba a rota
+# pra "cadastro", que não expõe `salvar_memoria`, e o LLM aluciona uma tool.
+_RE_MEMORIA_EXPLICITA = re.compile(
+    r"\b(cadastr|registr|anot|guard|salv|grav)\w*\s+(na|nas|numa)?\s*memoria\b"
+)
 # Apple Notes (rota "notas") — exige menção EXPLÍCITA ao substantivo "nota(s)" ou
 # "apple notes". Isso desambigua da memória vetorial (_RE_MEMORIA casa "anota que
 # eu gosto..." → memoria) e do cadastro (_RE_CADASTRO casa "registra o fulano" →
@@ -183,6 +192,12 @@ def decidir_rota(
     if eh_admin and _RE_NOTAS.search(m):
         return "notas"
 
+    # 0.6) Menção EXPLÍCITA a "memória" + verbo de registro — ANTES de cadastro
+    # (1.1), senão "cadastre na memória..." cai em "cadastro" (sem `salvar_memoria`
+    # no cardápio) e o LLM aluciona uma tool inexistente. Só para cadastrado.
+    if registrado and _RE_MEMORIA_EXPLICITA.search(m):
+        return "memoria"
+
     # 1) Cadastro de rosto — só admin, com imagem e marcador explícito.
     if tem_imagem and eh_admin and (_RE_ROSTO_PESSOA.search(m) or _RE_ROSTO_KW.search(m)):
         return "rosto"
@@ -230,14 +245,14 @@ def decidir_rota(
 
 def deve_forcar_salvamento(mensagem: str) -> bool:
     """True se o turno deve FORÇAR a chamada de `salvar_memoria` (tool_config
-    ANY) — gatilho da rota "memoria" (`_RE_MEMORIA`) com conteúdo substancial
-    sobrando após o verbo-gatilho (≥3 palavras), para não forçar em
-    falsos-positivos triviais (ex.: "não esquece que hoje é sexta" sozinho).
-    Opera sobre a mensagem NORMALIZADA de ponta a ponta (match e fatiamento),
-    evitando o bug de índice de misturar normalizada com original.
+    ANY) — gatilho da rota "memoria" (`_RE_MEMORIA` ou `_RE_MEMORIA_EXPLICITA`)
+    com conteúdo substancial sobrando após o trecho-gatilho (≥3 palavras), para
+    não forçar em falsos-positivos triviais (ex.: "não esquece que hoje é
+    sexta" sozinho). Opera sobre a mensagem NORMALIZADA de ponta a ponta (match
+    e fatiamento), evitando o bug de índice de misturar normalizada com original.
     """
     m = _norm(mensagem)
-    match = _RE_MEMORIA.search(m)
+    match = _RE_MEMORIA.search(m) or _RE_MEMORIA_EXPLICITA.search(m)
     if not match:
         return False
     resto = m[match.end():].split()
