@@ -222,6 +222,62 @@ async def test_gerar_com_pessoas_ok(monkeypatch):
     assert chamadas == ["enviar_imagem"]
 
 
+async def test_gerar_com_pessoas_inclui_foto_do_turno_como_referencia(monkeypatch):
+    """Regressão: "adiciona o Fulano nessa foto" tem que preservar a foto do
+    turno como referência extra — sem isso o Gemini inventa rostos genéricos
+    pras pessoas citadas (só tinha as fotos de rosto cadastradas, sem a cena
+    original).
+    """
+    async def fake_fotos(nums):
+        return [{"numero": n, "nome": n, "base64": "img", "mimetype": "image/jpeg"} for n in nums]
+
+    recebidas = []
+
+    async def fake_gen(prompt, imagens):
+        recebidas.extend(imagens)
+        return {"base64": "gerada", "mimetype": "image/png"}
+
+    async def fake_mcp(tool, args):
+        pass
+
+    monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
+    monkeypatch.setattr(tools, "gerar_imagem_com_referencias", fake_gen)
+    monkeypatch.setattr(tools, "chamar_mcp", fake_mcp)
+
+    foto_turno = {"base64": "foto-do-turno", "mimetype": "image/jpeg"}
+    with _ident("U", registrado=True, midia=foto_turno):
+        res = await tools.gerar_e_enviar_imagem_com_pessoas("adiciona a Aline", ["A"], "JID")
+
+    assert res.get("status") == "ok"
+    # Foto do turno vem PRIMEIRO (é a cena base a preservar) + 1 foto de rosto.
+    assert recebidas == [foto_turno, {"numero": "A", "nome": "A", "base64": "img", "mimetype": "image/jpeg"}]
+
+
+async def test_gerar_com_pessoas_sem_foto_no_turno_nao_adiciona_nada(monkeypatch):
+    """Caminho normal (cena nova, sem foto no turno) continua igual."""
+    async def fake_fotos(nums):
+        return [{"numero": n, "nome": n, "base64": "img", "mimetype": "image/jpeg"} for n in nums]
+
+    recebidas = []
+
+    async def fake_gen(prompt, imagens):
+        recebidas.extend(imagens)
+        return {"base64": "gerada", "mimetype": "image/png"}
+
+    async def fake_mcp(tool, args):
+        pass
+
+    monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
+    monkeypatch.setattr(tools, "gerar_imagem_com_referencias", fake_gen)
+    monkeypatch.setattr(tools, "chamar_mcp", fake_mcp)
+
+    with _ident("U", registrado=True):  # sem midia
+        res = await tools.gerar_e_enviar_imagem_com_pessoas("praia", ["A"], "JID")
+
+    assert res.get("status") == "ok"
+    assert recebidas == [{"numero": "A", "nome": "A", "base64": "img", "mimetype": "image/jpeg"}]
+
+
 async def test_fotos_de_casa_numero_com_ou_sem_sufixo(monkeypatch, tmp_path):
     """Regressão: foto guardada com JID completo deve casar com número 'limpo'."""
     rosto_repo._conn = None

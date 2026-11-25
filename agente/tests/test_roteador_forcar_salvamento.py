@@ -96,6 +96,19 @@ def test_pedido_de_lembrete_legitimo_continua_funcionando():
     assert rota == "lembrete"
 
 
+def test_adicionar_pessoa_cadastrada_em_foto_libera_tool_de_pessoas():
+    # Regressão real: "adiciona a Aline nessa foto" caía em edicao_visual, mas
+    # essa rota não liberava gerar_e_enviar_imagem_com_pessoas — o LLM usava
+    # editar_e_enviar_imagem (só texto, sem foto de rosto) e inventava rostos.
+    rota = roteador.decidir_rota(
+        "adiciona a aline nessa foto", tem_imagem=True, eh_admin=True, registrado=True
+    )
+    assert rota == "edicao_visual"
+    tools_permitidas = roteador.tools_da_rota(rota)
+    assert "gerar_e_enviar_imagem_com_pessoas" in tools_permitidas
+    assert "buscar_contato" in tools_permitidas
+
+
 def test_forca_com_frase_trivial_mas_com_3_palavras(monkeypatch):
     # Guard é só "3+ palavras depois", não qualidade do conteúdo — risco
     # residual aceito e documentado no plano.

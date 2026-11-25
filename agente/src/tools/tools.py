@@ -948,11 +948,14 @@ async def esquecer_rosto(numero: str) -> dict:
 async def gerar_e_enviar_imagem_com_pessoas(prompt: str, numeros: list[str], jid: str) -> dict:
     """CRIA uma imagem com pessoas CADASTRADAS (usa a foto do rosto delas) e ENVIA.
 
-    Use para "faça/cria uma imagem com o X e a Y" — compor pessoas cadastradas
-    numa cena nova. Descubra o `numero` de CADA pessoa com `buscar_contato(nome)`
-    ANTES e passe a lista em `numeros`. `prompt` = a cena desejada (pt-BR);
-    `jid` = `usuario_jid`. Não retorna a imagem (já é enviada) — depois confirme
-    em UMA frase curta.
+    Use para "faça/cria uma imagem com o X e a Y" (cena nova) OU para "adiciona
+    o X nessa foto" quando HÁ uma imagem no turno (`tem_imagem=sim`) — nesse
+    caso a foto do turno entra AUTOMATICAMENTE como referência extra, junto com
+    os rostos cadastrados, e o pedido vira "insira essas pessoas NESSA foto"
+    (preservando a cena original o máximo possível). Descubra o `numero` de
+    CADA pessoa com `buscar_contato(nome)` ANTES e passe a lista em `numeros`.
+    `prompt` = a cena/alteração desejada (pt-BR); `jid` = `usuario_jid`. Não
+    retorna a imagem (já é enviada) — depois confirme em UMA frase curta.
 
     Só funciona para quem tem ROSTO cadastrado COM FOTO. Se faltar a foto de
     alguém, o retorno diz quem — peça para cadastrar o rosto dessa pessoa.
@@ -979,7 +982,12 @@ async def gerar_e_enviar_imagem_com_pessoas(prompt: str, numeros: list[str], jid
     faltando = [n for n in nums if rosto_repo.normalizar_numero(n) not in achados]
     if faltando:
         return {"erro": f"Sem foto cadastrada para: {', '.join(faltando)}. Cadastre o rosto dessas pessoas (com foto) antes."}
-    return await _entregar(gerar_imagem_com_referencias(prompt, fotos), "enviar_imagem", jid)
+    # Foto do turno (se houver) entra PRIMEIRO na lista de referências — é a cena
+    # base a preservar. Sem isso, "adiciona o X nessa foto" perdia a foto
+    # original e o Gemini inventava rostos genéricos pras pessoas citadas.
+    midia = request_context.midia_atual()
+    imagens = ([midia] if midia else []) + fotos
+    return await _entregar(gerar_imagem_com_referencias(prompt, imagens), "enviar_imagem", jid)
 
 
 async def buscar_contato(nome: str) -> dict:

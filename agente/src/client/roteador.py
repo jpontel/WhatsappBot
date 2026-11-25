@@ -60,6 +60,11 @@ _TOOLS_POR_ROTA: dict[str, frozenset[str]] = {
         "editar_e_enviar_imagem", "editar_e_enviar_sticker",
         "gerar_e_enviar_imagem", "gerar_e_enviar_sticker",
         "converter_em_sticker",
+        # Precisa estar aqui (não só em "geracao_visual") pro caso de "adiciona o
+        # Fulano cadastrado NESSA foto" — tem_imagem=true + verbo de edição cai
+        # aqui, e sem a tool o LLM usava editar_e_enviar_imagem (só texto, sem
+        # referência de rosto) e inventava rostos genéricos pra quem foi citado.
+        "gerar_e_enviar_imagem_com_pessoas", "buscar_contato",
     }),
     "cadastro": frozenset({"cadastrar_pessoa", "buscar_contato"}),
     "audio": frozenset({"gerar_e_enviar_audio"}),
