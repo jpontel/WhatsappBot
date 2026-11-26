@@ -103,7 +103,7 @@ def _norm(texto: str) -> str:
 # --- Regras (regex sobre o texto normalizado) ---------------------------------
 _RE_GER_VERBO = re.compile(r"\b(desenh\w*|gera\w*|cria\w*|faz|faca|fazer|monta\w*|ilustra\w*|gostaria de ver)\b")
 _RE_GER_NOUN = re.compile(r"\b(imagem|imagens|figurinha\w*|sticker\w*|foto|fotos|desenho|logo|logotipo|arte|wallpaper|papel de parede|meme\w*|retrato|poster)\b")
-_RE_EDIT = re.compile(r"\b(edita\w*|muda\w*|troca\w*|altera\w*|remov\w*|tira\w*|coloca\w*|adiciona\w*|deixa|transform\w*|melhora\w*|conserta\w*|recorta\w*|corta\w*|apaga\w*|pinta\w*)\b")
+_RE_EDIT = re.compile(r"\b(edita\w*|muda\w*|troca\w*|altera\w*|remov\w*|tira\w*|coloca\w*|adiciona\w*|deixa|transform\w*|melhora\w*|conserta\w*|recorta\w*|corta\w*|apaga\w*|pinta\w*|aumenta\w*|diminui\w*|reduz\w*|amplia\w*|encolhe\w*)\b")
 # "cantar" é o verbo canônico de pedir música ("canta uma música sobre...") —
 # por si só já basta para a rota de música, sem precisar de substantivo musical.
 _RE_MUSICA = re.compile(r"\b(compoe\w*|compor|cant[ae]\w*|cantar|jingle|instrumental|musiquinha|trilha sonora)\b")
@@ -164,6 +164,46 @@ _RE_BUSCA = re.compile(r"\b(pesquis\w*|procur\w*|busca na web|busca no|o que e|o
 # Gatilho da regra condicional "bettdopo"/trovão — vale em QUALQUER rota (não é
 # uma rota, é um fragmento extra de instrução injetado quando a msg menciona isso).
 _RE_BETTDOPO = re.compile(r"\b(bettdopo|bet do po|trov\w*)\b")
+
+# Vocabulário de REAÇÃO PURA (risada, interjeição, elogio, confirmação) +
+# palavras NEUTRAS de preenchimento (artigos/conectivos comuns em reações
+# curtas, ex.: "que foto linda"). Usado por `_eh_reacao_pura` para decidir se
+# uma mensagem-com-imagem que não bateu em NENHUMA regra de rota é só um
+# comentário (rota "visao", 0 tools) ou um possível pedido de ação que
+# nenhuma regra específica reconheceu (cai no fallback `None`, todas as
+# tools). Critério: TODO token da mensagem precisa estar num dos dois
+# conjuntos, E pelo menos 1 token precisa ser reação de verdade — senão
+# "poe oculos nele"/"manda ver" (sem verbo conhecido, mas pedido de ação
+# real) cairiam aqui só por acaso não baterem em nenhuma regra anterior.
+# Fullmatch por TOKEN (não .search): uma palavra de elogio dentro de uma
+# frase maior ("ficou bom demais, mas diminui o brilho") não pode sequestrar
+# a classificação — mesma classe de bug de regex "roubando rota" já vista
+# nesta sessão (memoria/cadastro, rosto/cadastro, lembrete/recall).
+_PALAVRAS_REACAO = frozenset({
+    "kk", "rs", "haha", "rindo", "chorando", "nossa", "uau", "caramba",
+    "eita", "aff", "affs", "lindo", "linda", "incrivel", "demais", "top",
+    "show", "massa", "maravilhoso", "maravilhosa", "perfeito", "perfeita",
+    "sim", "nao", "ok", "blz", "valeu", "vlw", "obrigado", "obrigada",
+})
+_PALAVRAS_NEUTRAS = frozenset({
+    "que", "isso", "essa", "esse", "foto", "imagem", "ficou", "ficaram",
+    "ta", "tao", "muito", "bem", "mto", "mt", "pra", "de", "a", "o", "la", "ai",
+})
+# Mensagem vazia (foto sem legenda) ou só risada/pontuação — caso de maior
+# volume real (reação a foto enviada pelo próprio bot).
+_RE_SO_RISADA_OU_VAZIO = re.compile(r"^[\s.,!?~\-]*(k+|rs+|haha+\w*|rindo|chorando)?[\s.,!?~\-]*$")
+
+
+def _eh_reacao_pura(m: str) -> bool:
+    """True se a mensagem (já normalizada) é só comentário/reação — sem
+    pedido de ação. Ver vocabulário acima para o critério exato."""
+    if _RE_SO_RISADA_OU_VAZIO.fullmatch(m):
+        return True
+    palavras = re.findall(r"\w+", m)
+    if not palavras:
+        return False
+    vocabulario = _PALAVRAS_REACAO | _PALAVRAS_NEUTRAS
+    return all(p in vocabulario for p in palavras) and any(p in _PALAVRAS_REACAO for p in palavras)
 
 # Meta-pergunta sobre o FUNCIONAMENTO do bot → rota "ajuda" (guia de uso). Cobre o
 # geral ("como você funciona", "o que você faz", "quais seus comandos") e o
@@ -256,9 +296,14 @@ def decidir_rota(
     if _RE_BUSCA.search(m):
         return "busca"
 
-    # 9) Imagem no turno sem outra intenção: só olhar/comentar.
+    # 9) Imagem no turno sem outra intenção RECONHECIDA. "visao" (0 tools) só
+    # quando a mensagem parece mesmo um comentário/reação pura — senão cai no
+    # fallback (10), que dá TODAS as tools. Sem essa distinção, qualquer verbo
+    # de edição não previsto (ex.: "aumenta", que faltava até esse fix) caía
+    # com 0 tools disponíveis e o LLM alucinava uma função inexistente em vez
+    # de ter a chance de usar a tool real.
     if tem_imagem:
-        return "visao"
+        return "visao" if _eh_reacao_pura(m) else None
 
     # 10) Nada casou → fallback (sem filtro: LLM recebe todas as tools).
     return None

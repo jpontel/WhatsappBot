@@ -109,6 +109,35 @@ def test_adicionar_pessoa_cadastrada_em_foto_libera_tool_de_pessoas():
     assert "buscar_contato" not in tools_permitidas
 
 
+def test_edicao_com_verbo_de_tamanho_reconhecida():
+    # Regressão real: "aumente" não estava em _RE_EDIT, a mensagem caía em
+    # "visao" (0 tools) e o LLM alucinava uma tool inexistente pra editar.
+    rota = roteador.decidir_rota(
+        "aumenta o busto dele", tem_imagem=True, eh_admin=True, registrado=True
+    )
+    assert rota == "edicao_visual"
+
+
+def test_imagem_com_reacao_curta_continua_rota_visao():
+    for msg in ("kkkkk", "", "que foto linda"):
+        rota = roteador.decidir_rota(msg, tem_imagem=True, eh_admin=False, registrado=True)
+        assert rota == "visao", msg
+
+
+def test_imagem_com_pedido_nao_reconhecido_cai_no_fallback():
+    # Nem _RE_EDIT (mesmo ampliado) nem o vocabulário de reação reconhecem
+    # essas frases — tem que cair em None (todas as tools), não em "visao"
+    # (0 tools), mesmo as curtas ("poe"/"manda" não são verbo de edição nem
+    # palavra de reação).
+    for msg in (
+        "inverte as cores dessa foto por completo",
+        "poe oculos nele",
+        "manda ver",
+    ):
+        rota = roteador.decidir_rota(msg, tem_imagem=True, eh_admin=False, registrado=True)
+        assert rota is None, msg
+
+
 def test_forca_com_frase_trivial_mas_com_3_palavras(monkeypatch):
     # Guard é só "3+ palavras depois", não qualidade do conteúdo — risco
     # residual aceito e documentado no plano.
