@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { whatsappService } from "../services/whatsapp.service.js";
 import { youtubeService } from "../services/youtube.service.js";
+import { twitterService } from "../services/twitter.service.js";
 import { audioService } from "../services/audio.service.js";
 import { LastfmService } from "../services/lastfm.service.js";
 import { Canvas } from "../utils/canvas.js";
@@ -189,6 +190,24 @@ export async function baixarVideoYoutubeHandler(
     try {
         const sock = whatsappService.recuperarInstancia();
         caminho = await youtubeService.baixarVideo(url);
+        await sock.sendMessage(jid, { video: { url: caminho } });
+        return ok(`✅ Vídeo enviado para ${jid}`);
+    } catch (error) {
+        return fail(`❌ Falha ao baixar/enviar o vídeo: ${(error as Error).message}`);
+    } finally {
+        if (caminho && fs.existsSync(caminho)) {
+            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+        }
+    }
+}
+
+export async function baixarVideoTwitterHandler(
+    { jid, url }: { jid: string; url: string }
+): Promise<McpToolResult> {
+    let caminho: string | null = null;
+    try {
+        const sock = whatsappService.recuperarInstancia();
+        caminho = await twitterService.baixarVideo(url);
         await sock.sendMessage(jid, { video: { url: caminho } });
         return ok(`✅ Vídeo enviado para ${jid}`);
     } catch (error) {
@@ -668,6 +687,18 @@ function inicializarServidor() {
             }
         },
         baixarVideoYoutubeHandler
+    );
+
+    server.registerTool(
+        "baixar_video_twitter",
+        {
+            description: "Baixa um vídeo de um link do Twitter/X (twitter.com ou x.com) e ENVIA como vídeo para o JID. Use para 'baixa esse vídeo <link>' quando o link for do Twitter/X.",
+            inputSchema: {
+                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
+                url: z.string().describe("Link do Twitter/X do vídeo (twitter.com ou x.com).")
+            }
+        },
+        baixarVideoTwitterHandler
     );
 
     server.registerTool(

@@ -85,6 +85,10 @@ _TOOLS_POR_ROTA: dict[str, frozenset[str]] = {
     }),
     "rosto": frozenset({"registrar_rosto", "esquecer_rosto", "buscar_contato"}),
     "busca": frozenset({"buscar_web", "buscar_artigos", "deepsearch_artigos"}),
+    # Download de vídeo (YouTube/Twitter-X) — ANTES de "busca" na ordem de
+    # decidir_rota, senão qualquer URL cai em "busca" (ver _RE_BUSCA) e o LLM
+    # nunca vê as tools de baixar vídeo quando o roteador restringe o cardápio.
+    "video": frozenset({"baixar_video_youtube", "baixar_video_twitter"}),
     # Imagem no turno sem outra intenção: o modelo só "olha" e comenta — nenhuma
     # tool além da base. Maior economia de schema.
     "visao": frozenset(),
@@ -161,6 +165,13 @@ _RE_ROSTO_MENCAO = re.compile(r"\brosto\w*\b")
 # "registra esse número como Maria". Só admin (checado em decidir_rota).
 _RE_CADASTRO = re.compile(r"\b(cadastr\w*|registr\w*)\b")
 _RE_BUSCA = re.compile(r"\b(pesquis\w*|procur\w*|busca na web|busca no|o que e|o que foi|quem e|quem foi|noticia\w*|preco de|cotacao|quanto custa|artigo\w*|paper\w*|estudo\w* sobre|cientific\w*)\b|https?://")
+# Download de vídeo (YouTube ou Twitter/X). Verbos restritos a baixar/download
+# (NÃO "manda"/"envia"/"pega" — ambíguos demais: "busca um vídeo bom de yoga e
+# me manda o link" não pode roubar a rota de `buscar_web`; mesma classe de bug
+# de regex genérica "roubando" rota mais específica já documentada acima).
+_RE_VIDEO_VERBO = re.compile(r"\b(baix\w*|download)\b")
+_RE_VIDEO_NOUN = re.compile(r"\bvideo\w*\b")
+_RE_VIDEO_URL = re.compile(r"https?://[^\s]*\b(twitter\.com|x\.com|youtube\.com|youtu\.be)\b")
 # Gatilho da regra condicional "bettdopo"/trovão — vale em QUALQUER rota (não é
 # uma rota, é um fragmento extra de instrução injetado quando a msg menciona isso).
 _RE_BETTDOPO = re.compile(r"\b(bettdopo|bet do po|trov\w*)\b")
@@ -291,6 +302,18 @@ def decidir_rota(
     # 7) Memória (só faz sentido para pessoa cadastrada).
     if registrado and _RE_MEMORIA.search(m):
         return "memoria"
+
+    # 7.5) Download de vídeo (YouTube/Twitter-X). ANTES da busca (8) — toda
+    # mensagem desse tipo contém URL e bateria em _RE_BUSCA primeiro, roubando
+    # a rota. Duas formas de casar: (a) a URL já é de um domínio de vídeo
+    # conhecido — não precisa de verbo explícito; (b) verbo baixar/download +
+    # substantivo "vídeo" E alguma URL (genérica) na mensagem — a exigência de
+    # URL aqui evita que um pedido de BUSCA sobre vídeo (ex.: "busca um vídeo
+    # bom de yoga e me manda o link", sem nenhuma URL) seja roubado desta rota.
+    if _RE_VIDEO_URL.search(m) or (
+        _RE_VIDEO_VERBO.search(m) and _RE_VIDEO_NOUN.search(m) and re.search(r"https?://", m)
+    ):
+        return "video"
 
     # 8) Busca factual / científica / URL.
     if _RE_BUSCA.search(m):

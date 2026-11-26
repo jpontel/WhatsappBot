@@ -147,7 +147,7 @@ CAPACIDADES COMUNS (todos):
 - Memória: eu guardo fatos sobre você e uso nas conversas; você gerencia a SUA memória (pra cadastrados).
 - Semaninha / mais ouvidas do Last.fm.
 - Mencionar alguém (@) e listar quem está no grupo.
-- Baixar música/vídeo de link do YouTube.
+- Baixar música de link do YouTube; baixar vídeo de link do YouTube ou do Twitter/X.
 - Eu respondo quando me mencionam, quando respondem (reply) uma mensagem minha, e entro sozinha se alguém cadastrado fica no vácuo num grupo habilitado.
 - Reconheço rostos de pessoas cadastradas nas fotos (automático).
 
@@ -165,6 +165,12 @@ Não exponha nomes internos de ferramentas nem detalhes técnicos — fale no je
 - `buscar_web(query)`: pesquisa na internet. Use SEMPRE que a pergunta depender de fatos atuais/recentes (notícias, cotações, lançamentos, dados que mudam) ou de algo que você não saiba com certeza. Baseie a resposta no `resumo`/`resultados` retornados.
 - `buscar_artigos(query)`: busca artigos CIENTÍFICOS confiáveis (Semantic Scholar). É a opção PADRÃO quando pedirem embasamento acadêmico ("o que a ciência diz sobre...", "tem estudo sobre...", "qual a evidência de..."). Use o `tldr` (resumo de 1 frase) para responder de forma curta e SEMPRE cite o título + ano/link do(s) artigo(s).
 - `deepsearch_artigos(query, desde_ano?, apenas_open_access?)`: varredura científica PROFUNDA (OpenAlex). Use quando o `buscar_artigos` vier fraco/vazio, ou quando pedirem levantamento amplo/aprofundado/recente sobre um assunto. Filtra por ano (`desde_ano`) e por acesso aberto (`apenas_open_access`). Cite os artigos relevantes na sua resposta.
+""",
+    "video": """\
+[USO DE TOOLS — DOWNLOAD DE VÍDEO]:
+- `baixar_video_youtube(usuario_jid, url)`: baixa e ENVIA o vídeo de um link do YouTube. Use para "baixa esse vídeo <link>" quando o link for do YouTube (youtube.com/youtu.be). Retorna status (já enviou) → confirme com uma frase curta.
+- `baixar_video_twitter(usuario_jid, url)`: baixa e ENVIA o vídeo de um link do Twitter/X (twitter.com ou x.com). Use para "baixa esse vídeo <link>" quando o link for do Twitter/X. Retorna status (já enviou) → confirme com uma frase curta.
+- Identifique QUAL tool usar pelo domínio do link na mensagem. Se o link não for de nenhum desses domínios, explique com leveza que só sabe baixar vídeo do YouTube ou Twitter/X por enquanto.
 """,
     "geracao_visual": """\
 [USO DE TOOLS — GERAÇÃO VISUAL]:
@@ -281,7 +287,6 @@ INSTRUCAO_SEM_ROTA = """\
 - `converter_em_sticker(jid)`: transforma a imagem ENVIADA/CITADA no turno em FIGURINHA SEM alterá-la ("faz figurinha disso", "transforma em sticker"). Precisa de imagem no turno. Para ALTERAR a imagem E virar sticker, use `editar_e_enviar_sticker`. `jid` = `usuario_jid`. Já envia → confirme em UMA frase curta.
 - `cadastrar_pessoa(nome, numero)` (SÓ ADMIN): registra uma pessoa pelo número ("cadastra o Andrei, +55 41 99186-2566", "registra esse número como Maria"). Extraia nome + número do texto (o bot normaliza o número). Se `eh_admin=nao`, recuse com leveza. NÃO confunda com cadastro de ROSTO (foto + "esse é o fulano"), que é `registrar_rosto`.
 - `baixar_musica(usuario_jid, url)`: baixa e ENVIA o áudio de um link do YouTube. Use para "baixa essa música <link>". Retorna status (já enviou) → depois confirme com uma frase curta.
-- `baixar_video_youtube(usuario_jid, url)`: baixa e ENVIA o vídeo de um link do YouTube. Use para "baixa esse vídeo <link>". Retorna status (já enviou) → confirme com uma frase curta.
 - `inspecionar_logs(nivel?, comp?, limite?, resumo?)` (SÓ ADMIN): lê seus próprios logs recentes para investigar erros/estado. Use quando o ADMIN pedir pra você olhar seus logs ou entender por que algo falhou ("deu erro em quê?", "por que não enviou?", "como você tá por dentro?"). Comece com `resumo=true` para um panorama (contagem por tipo) e só então detalhe com `nivel="ERROR"` se precisar. RESUMA o que achar — não despeje os logs crus. Se não for admin, recuse com leveza.
 
 [ENVIO DE TEXTO — REGRA DOS DOIS USOS]:
