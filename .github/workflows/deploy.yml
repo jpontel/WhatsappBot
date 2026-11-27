@@ -46,9 +46,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - run: pipx install poetry==2.4.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
           cache: poetry
           cache-dependency-path: agente/poetry.lock
-      - run: pipx install poetry==2.4.1
       - run: poetry install --no-root
       - run: poetry run ruff check .
       - run: poetry run ruff format --check .
