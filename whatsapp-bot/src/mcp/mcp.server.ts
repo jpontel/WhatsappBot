@@ -1,22 +1,29 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { whatsappService } from "../services/whatsapp.service.js";
-import { youtubeService } from "../services/youtube.service.js";
-import { twitterService } from "../services/twitter.service.js";
-import { audioService } from "../services/audio.service.js";
-import { LastfmService } from "../services/lastfm.service.js";
-import { Canvas } from "../utils/canvas.js";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { whatsappService } from '../services/whatsapp.service.js';
+import { youtubeService } from '../services/youtube.service.js';
+import { twitterService } from '../services/twitter.service.js';
+import { audioService } from '../services/audio.service.js';
+import { LastfmService } from '../services/lastfm.service.js';
+import { Canvas } from '../utils/canvas.js';
 import { Sticker, StickerTypes } from 'wa-sticker-formatter';
 import express, { type Request, type Response } from 'express';
 import fs from 'node:fs';
 import cron from 'node-cron';
-import { ENV } from "../config/env.js";
+import { ENV } from '../config/env.js';
 import { z } from 'zod';
-import { agendamentoRepository, mesmoSolicitante } from "../repository/agendamento.repository.js";
-import { schedulerService } from "../services/scheduler.service.js";
-import { buscarPorNome, buscarPorNumero, buscarPorLid, listarTodos, registrarPessoa, type Pessoa } from "../repository/pessoa.repository.js";
-import { resolverNumero, resolverLid, normalizarNonoDigito } from "../core/identidade.js";
-import { isJidGroup, isLidUser, isPnUser, jidNormalizedUser } from "@whiskeysockets/baileys";
+import { agendamentoRepository, mesmoSolicitante } from '../repository/agendamento.repository.js';
+import { schedulerService } from '../services/scheduler.service.js';
+import {
+    buscarPorNome,
+    buscarPorNumero,
+    buscarPorLid,
+    listarTodos,
+    registrarPessoa,
+    type Pessoa,
+} from '../repository/pessoa.repository.js';
+import { resolverNumero, resolverLid, normalizarNonoDigito } from '../core/identidade.js';
+import { isJidGroup, isLidUser, isPnUser, jidNormalizedUser } from '@whiskeysockets/baileys';
 
 const lastfmService = new LastfmService();
 
@@ -25,21 +32,25 @@ const app = express();
 app.use(express.json({ limit: '20mb' }));
 
 type McpToolResult = {
-    content: { type: "text"; text: string }[];
+    content: { type: 'text'; text: string }[];
     isError?: boolean;
 };
 
 function ok(text: string): McpToolResult {
-    return { content: [{ type: "text", text }] };
+    return { content: [{ type: 'text', text }] };
 }
 
 function fail(text: string): McpToolResult {
-    return { isError: true, content: [{ type: "text", text }] };
+    return { isError: true, content: [{ type: 'text', text }] };
 }
 
-export async function enviarStickerHandler(
-    { jid, mediaBase64 }: { jid: string; mediaBase64: string }
-): Promise<McpToolResult> {
+export async function enviarStickerHandler({
+    jid,
+    mediaBase64,
+}: {
+    jid: string;
+    mediaBase64: string;
+}): Promise<McpToolResult> {
     try {
         const sock = whatsappService.recuperarInstancia();
         const buffer = Buffer.from(mediaBase64, 'base64');
@@ -48,7 +59,7 @@ export async function enviarStickerHandler(
             pack: 'bot do guigo',
             author: 'guig0',
             type: StickerTypes.FULL,
-            quality: 30
+            quality: 30,
         });
 
         const stickerBuffer = await sticker.toBuffer();
@@ -60,9 +71,13 @@ export async function enviarStickerHandler(
     }
 }
 
-export async function enviarAudioHandler(
-    { jid, mediaBase64 }: { jid: string; mediaBase64: string }
-): Promise<McpToolResult> {
+export async function enviarAudioHandler({
+    jid,
+    mediaBase64,
+}: {
+    jid: string;
+    mediaBase64: string;
+}): Promise<McpToolResult> {
     let caminho: string | null = null;
     try {
         const sock = whatsappService.recuperarInstancia();
@@ -81,19 +96,27 @@ export async function enviarAudioHandler(
         return fail(`❌ Falha ao enviar áudio: ${(error as Error).message}`);
     } finally {
         if (caminho && fs.existsSync(caminho)) {
-            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+            try {
+                fs.unlinkSync(caminho);
+            } catch {
+                /* ignora limpeza */
+            }
         }
     }
 }
 
 // Remove invisíveis (zero-width/BOM) e espaços para checar se há conteúdo real.
 function textoVazio(texto: string | null | undefined): boolean {
-    return !((texto ?? '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim());
+    return !(texto ?? '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
 }
 
-export async function enviarTextoHandler(
-    { jid, texto }: { jid: string; texto: string }
-): Promise<McpToolResult> {
+export async function enviarTextoHandler({
+    jid,
+    texto,
+}: {
+    jid: string;
+    texto: string;
+}): Promise<McpToolResult> {
     try {
         // Ignora texto vazio/em-branco: ao mandar só áudio, o modelo às vezes
         // chama enviar_texto com conteúdo vazio, gerando uma bolha em branco.
@@ -108,16 +131,22 @@ export async function enviarTextoHandler(
     }
 }
 
-export async function enviarImagemHandler(
-    { jid, mediaBase64, legenda }: { jid: string; mediaBase64: string; legenda?: string }
-): Promise<McpToolResult> {
+export async function enviarImagemHandler({
+    jid,
+    mediaBase64,
+    legenda,
+}: {
+    jid: string;
+    mediaBase64: string;
+    legenda?: string | undefined;
+}): Promise<McpToolResult> {
     try {
         const sock = whatsappService.recuperarInstancia();
         const buffer = Buffer.from(mediaBase64, 'base64');
 
         await sock.sendMessage(jid, {
             image: buffer,
-            ...(legenda ? { caption: legenda } : {})
+            ...(legenda ? { caption: legenda } : {}),
         });
 
         return ok(`✅ Imagem enviada para ${jid}`);
@@ -129,17 +158,23 @@ export async function enviarImagemHandler(
 type MsgKeyInput = {
     id: string;
     remoteJid: string;
-    fromMe?: boolean;
-    participant?: string;
+    fromMe?: boolean | undefined;
+    participant?: string | undefined;
 };
 
-export async function reagirHandler(
-    { jid, msgKey, emoji }: { jid: string; msgKey: MsgKeyInput; emoji: string }
-): Promise<McpToolResult> {
+export async function reagirHandler({
+    jid,
+    msgKey,
+    emoji,
+}: {
+    jid: string;
+    msgKey: MsgKeyInput;
+    emoji: string;
+}): Promise<McpToolResult> {
     try {
         const sock = whatsappService.recuperarInstancia();
         await sock.sendMessage(jid, {
-            react: { text: emoji, key: msgKey as never }
+            react: { text: emoji, key: msgKey as never },
         });
         return ok(`✅ Reação '${emoji}' aplicada em ${jid}`);
     } catch (error) {
@@ -147,16 +182,20 @@ export async function reagirHandler(
     }
 }
 
-export async function chartsLastfmHandler(
-    { usuario }: { usuario: string }
-): Promise<McpToolResult> {
+export async function chartsLastfmHandler({
+    usuario,
+}: {
+    usuario: string;
+}): Promise<McpToolResult> {
     try {
         const charts = await lastfmService.listarMaisOuvidasSemana(usuario);
         if (!charts?.length) return ok(`Nenhuma música ouvida na semana para ${usuario}.`);
 
         const linhas = charts
-            .map((c: { posicao: number; musica: string; artista: string; contagem: number }) =>
-                `${c.posicao}. ${c.musica} — ${c.artista} (${c.contagem}x)`)
+            .map(
+                (c: { posicao: number; musica: string; artista: string; contagem: number }) =>
+                    `${c.posicao}. ${c.musica} — ${c.artista} (${c.contagem}x)`,
+            )
             .join('\n');
 
         return ok(`Mais ouvidas da semana de ${usuario}:\n${linhas}`);
@@ -165,9 +204,13 @@ export async function chartsLastfmHandler(
     }
 }
 
-export async function baixarMusicaHandler(
-    { jid, url }: { jid: string; url: string }
-): Promise<McpToolResult> {
+export async function baixarMusicaHandler({
+    jid,
+    url,
+}: {
+    jid: string;
+    url: string;
+}): Promise<McpToolResult> {
     let caminho: string | null = null;
     try {
         const sock = whatsappService.recuperarInstancia();
@@ -178,14 +221,22 @@ export async function baixarMusicaHandler(
         return fail(`❌ Falha ao baixar/enviar a música: ${(error as Error).message}`);
     } finally {
         if (caminho && fs.existsSync(caminho)) {
-            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+            try {
+                fs.unlinkSync(caminho);
+            } catch {
+                /* ignora limpeza */
+            }
         }
     }
 }
 
-export async function baixarVideoYoutubeHandler(
-    { jid, url }: { jid: string; url: string }
-): Promise<McpToolResult> {
+export async function baixarVideoYoutubeHandler({
+    jid,
+    url,
+}: {
+    jid: string;
+    url: string;
+}): Promise<McpToolResult> {
     let caminho: string | null = null;
     try {
         const sock = whatsappService.recuperarInstancia();
@@ -196,14 +247,22 @@ export async function baixarVideoYoutubeHandler(
         return fail(`❌ Falha ao baixar/enviar o vídeo: ${(error as Error).message}`);
     } finally {
         if (caminho && fs.existsSync(caminho)) {
-            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+            try {
+                fs.unlinkSync(caminho);
+            } catch {
+                /* ignora limpeza */
+            }
         }
     }
 }
 
-export async function baixarVideoTwitterHandler(
-    { jid, url }: { jid: string; url: string }
-): Promise<McpToolResult> {
+export async function baixarVideoTwitterHandler({
+    jid,
+    url,
+}: {
+    jid: string;
+    url: string;
+}): Promise<McpToolResult> {
     let caminho: string | null = null;
     try {
         const sock = whatsappService.recuperarInstancia();
@@ -214,23 +273,34 @@ export async function baixarVideoTwitterHandler(
         return fail(`❌ Falha ao baixar/enviar o vídeo: ${(error as Error).message}`);
     } finally {
         if (caminho && fs.existsSync(caminho)) {
-            try { fs.unlinkSync(caminho); } catch { /* ignora limpeza */ }
+            try {
+                fs.unlinkSync(caminho);
+            } catch {
+                /* ignora limpeza */
+            }
         }
     }
 }
 
-export async function agendarMensagemHandler(
-    { jid, mensagem, tipo, cron_expression, run_at, timezone, solicitante, urgente }: {
-        jid: string;
-        mensagem: string;
-        tipo: 'once' | 'recorrente';
-        cron_expression?: string;
-        run_at?: string;
-        timezone?: string;
-        solicitante?: string;
-        urgente?: boolean;
-    }
-): Promise<McpToolResult> {
+export async function agendarMensagemHandler({
+    jid,
+    mensagem,
+    tipo,
+    cron_expression,
+    run_at,
+    timezone,
+    solicitante,
+    urgente,
+}: {
+    jid: string;
+    mensagem: string;
+    tipo: 'once' | 'recorrente';
+    cron_expression?: string | undefined;
+    run_at?: string | undefined;
+    timezone?: string | undefined;
+    solicitante?: string | undefined;
+    urgente?: boolean | undefined;
+}): Promise<McpToolResult> {
     try {
         if (tipo === 'recorrente') {
             if (!cron_expression || !cron.validate(cron_expression)) {
@@ -243,8 +313,8 @@ export async function agendarMensagemHandler(
         }
 
         const id = agendamentoRepository.criar({
-            chatId: jid,                      // destino = chat de origem
-            contactId: solicitante ?? jid,    // quem pediu (identidade CONFIÁVEL; base de permissão)
+            chatId: jid, // destino = chat de origem
+            contactId: solicitante ?? jid, // quem pediu (identidade CONFIÁVEL; base de permissão)
             mensagem,
             tipo,
             cronExpression: cron_expression,
@@ -263,9 +333,15 @@ export async function agendarMensagemHandler(
     }
 }
 
-export async function listarAgendamentosHandler(
-    { jid, solicitante, eh_admin }: { jid: string; solicitante?: string; eh_admin?: boolean }
-): Promise<McpToolResult> {
+export async function listarAgendamentosHandler({
+    jid,
+    solicitante,
+    eh_admin,
+}: {
+    jid: string;
+    solicitante?: string | undefined;
+    eh_admin?: boolean | undefined;
+}): Promise<McpToolResult> {
     try {
         // Admin vê todos do chat; não-admin vê só os que ele mesmo criou.
         const filtro = eh_admin ? undefined : solicitante;
@@ -299,9 +375,17 @@ function negarSeSemPermissao(
     return `❌ Esse lembrete (id ${ag.id}) não é seu!! só quem criou pode mexer nele.`;
 }
 
-export async function cancelarAgendamentoHandler(
-    { jid, id, solicitante, eh_admin }: { jid: string; id: number; solicitante?: string; eh_admin?: boolean }
-): Promise<McpToolResult> {
+export async function cancelarAgendamentoHandler({
+    jid,
+    id,
+    solicitante,
+    eh_admin,
+}: {
+    jid: string;
+    id: number;
+    solicitante?: string | undefined;
+    eh_admin?: boolean | undefined;
+}): Promise<McpToolResult> {
     try {
         const ag = agendamentoRepository.buscarPorId(id);
         if (!ag || ag.chat_id !== jid || ag.status !== 'pendente') {
@@ -316,18 +400,25 @@ export async function cancelarAgendamentoHandler(
     }
 }
 
-export async function editarAgendamentoHandler(
-    { jid, id, solicitante, eh_admin, mensagem, run_at, cron_expression, urgente }: {
-        jid: string;
-        id: number;
-        solicitante?: string;
-        eh_admin?: boolean;
-        mensagem?: string;
-        run_at?: string;
-        cron_expression?: string;
-        urgente?: boolean;
-    }
-): Promise<McpToolResult> {
+export async function editarAgendamentoHandler({
+    jid,
+    id,
+    solicitante,
+    eh_admin,
+    mensagem,
+    run_at,
+    cron_expression,
+    urgente,
+}: {
+    jid: string;
+    id: number;
+    solicitante?: string | undefined;
+    eh_admin?: boolean | undefined;
+    mensagem?: string | undefined;
+    run_at?: string | undefined;
+    cron_expression?: string | undefined;
+    urgente?: boolean | undefined;
+}): Promise<McpToolResult> {
     try {
         const ag = agendamentoRepository.buscarPorId(id);
         if (!ag || ag.chat_id !== jid || ag.status !== 'pendente') {
@@ -338,11 +429,14 @@ export async function editarAgendamentoHandler(
 
         // Valida os campos de horário conforme o tipo do agendamento.
         if (cron_expression !== undefined) {
-            if (ag.tipo !== 'recorrente') return fail('❌ cron_expression só vale para lembrete recorrente.');
-            if (!cron.validate(cron_expression)) return fail(`❌ cron_expression inválida: "${cron_expression}".`);
+            if (ag.tipo !== 'recorrente')
+                return fail('❌ cron_expression só vale para lembrete recorrente.');
+            if (!cron.validate(cron_expression))
+                return fail(`❌ cron_expression inválida: "${cron_expression}".`);
         }
         if (run_at !== undefined) {
-            if (ag.tipo !== 'once') return fail('❌ run_at só vale para lembrete de uma vez (once).');
+            if (ag.tipo !== 'once')
+                return fail('❌ run_at só vale para lembrete de uma vez (once).');
             if (Number.isNaN(Date.parse(run_at))) return fail(`❌ run_at inválido: "${run_at}".`);
         }
 
@@ -362,9 +456,7 @@ export async function editarAgendamentoHandler(
     }
 }
 
-export async function buscarContatoHandler(
-    { nome }: { nome: string }
-): Promise<McpToolResult> {
+export async function buscarContatoHandler({ nome }: { nome: string }): Promise<McpToolResult> {
     try {
         const contatos = buscarPorNome(nome).map((p) => ({ nome: p.nome, jid: p.numero }));
         return ok(JSON.stringify(contatos));
@@ -382,9 +474,11 @@ export async function listarPessoasHandler(): Promise<McpToolResult> {
     }
 }
 
-export async function listarParticipantesGrupoHandler(
-    { jid }: { jid: string }
-): Promise<McpToolResult> {
+export async function listarParticipantesGrupoHandler({
+    jid,
+}: {
+    jid: string;
+}): Promise<McpToolResult> {
     try {
         if (!isJidGroup(jid)) {
             return fail('❌ Isso não é um grupo — só dá para listar participantes em grupos.');
@@ -438,9 +532,15 @@ function melhorPessoa(nome: string): { pessoa: Pessoa | null; ambiguo: boolean }
     return { pessoa: null, ambiguo: true };
 }
 
-export async function enviarMencaoHandler(
-    { jid, texto, nomes }: { jid: string; texto: string; nomes: string[] }
-): Promise<McpToolResult> {
+export async function enviarMencaoHandler({
+    jid,
+    texto,
+    nomes,
+}: {
+    jid: string;
+    texto: string;
+    nomes: string[];
+}): Promise<McpToolResult> {
     try {
         if (textoVazio(texto)) {
             return fail('Texto vazio — nada a enviar.');
@@ -472,8 +572,16 @@ export async function enviarMencaoHandler(
 
         for (const nome of nomes.slice(0, MAX_MENCOES)) {
             const { pessoa, ambiguo } = melhorPessoa(nome);
-            if (ambiguo) { resultados.push({ nome, pingado: false, motivo: 'ambiguo' }); textoPuro.push(nome); continue; }
-            if (!pessoa) { resultados.push({ nome, pingado: false, motivo: 'nao_cadastrado' }); textoPuro.push(nome); continue; }
+            if (ambiguo) {
+                resultados.push({ nome, pingado: false, motivo: 'ambiguo' });
+                textoPuro.push(nome);
+                continue;
+            }
+            if (!pessoa) {
+                resultados.push({ nome, pingado: false, motivo: 'nao_cadastrado' });
+                textoPuro.push(nome);
+                continue;
+            }
 
             // Acha o JID do participante: lid do cadastro > pn > reverso PN→LID.
             let mentionJid: string | undefined;
@@ -504,19 +612,26 @@ export async function enviarMencaoHandler(
         // os dígitos), depois os placeholders viram @digits; texto-puro perde o @.
         let textoFinal = texto;
         const placeholders: { ph: string; digits: string }[] = [];
-        [...pingados].sort((a, b) => b.nome.length - a.nome.length).forEach((item, i) => {
-            const ph = String.fromCharCode(0) + i + String.fromCharCode(0);
-            const re = new RegExp(`@${escaparRegex(item.nome)}(?![\\p{L}\\p{N}_])`, 'giu');
-            let achou = false;
-            textoFinal = textoFinal.replace(re, () => { achou = true; return ph; });
-            // Invariante: todo JID em `mentions` precisa de um @digits no texto.
-            if (!achou) textoFinal = textoFinal ? `${textoFinal} ${ph}` : ph;
-            placeholders.push({ ph, digits: item.digits });
-        });
-        [...textoPuro].sort((a, b) => b.length - a.length).forEach((nome) => {
-            const re = new RegExp(`@(${escaparRegex(nome)})(?![\\p{L}\\p{N}_])`, 'giu');
-            textoFinal = textoFinal.replace(re, '$1');
-        });
+        [...pingados]
+            .sort((a, b) => b.nome.length - a.nome.length)
+            .forEach((item, i) => {
+                const ph = String.fromCharCode(0) + i + String.fromCharCode(0);
+                const re = new RegExp(`@${escaparRegex(item.nome)}(?![\\p{L}\\p{N}_])`, 'giu');
+                let achou = false;
+                textoFinal = textoFinal.replace(re, () => {
+                    achou = true;
+                    return ph;
+                });
+                // Invariante: todo JID em `mentions` precisa de um @digits no texto.
+                if (!achou) textoFinal = textoFinal ? `${textoFinal} ${ph}` : ph;
+                placeholders.push({ ph, digits: item.digits });
+            });
+        [...textoPuro]
+            .sort((a, b) => b.length - a.length)
+            .forEach((nome) => {
+                const re = new RegExp(`@(${escaparRegex(nome)})(?![\\p{L}\\p{N}_])`, 'giu');
+                textoFinal = textoFinal.replace(re, '$1');
+            });
         for (const { ph, digits } of placeholders) {
             textoFinal = textoFinal.split(ph).join(`@${digits}`);
         }
@@ -529,9 +644,13 @@ export async function enviarMencaoHandler(
     }
 }
 
-export async function cadastrarPessoaHandler(
-    { nome, numero }: { nome: string; numero: string }
-): Promise<McpToolResult> {
+export async function cadastrarPessoaHandler({
+    nome,
+    numero,
+}: {
+    nome: string;
+    numero: string;
+}): Promise<McpToolResult> {
     try {
         const nomeLimpo = (nome ?? '').trim();
         if (!nomeLimpo) return fail('❌ Nome vazio — informe o nome da pessoa.');
@@ -560,9 +679,13 @@ export async function cadastrarPessoaHandler(
     }
 }
 
-export async function gerarEEnviarSemaninhaHandler(
-    { usuario, jid }: { usuario: string; jid: string }
-): Promise<McpToolResult> {
+export async function gerarEEnviarSemaninhaHandler({
+    usuario,
+    jid,
+}: {
+    usuario: string;
+    jid: string;
+}): Promise<McpToolResult> {
     try {
         const sock = whatsappService.recuperarInstancia();
 
@@ -584,274 +707,391 @@ export async function gerarEEnviarSemaninhaHandler(
 function inicializarServidor() {
     const server = new McpServer({
         name: 'Megatron-Whatsapp-Bridge',
-        version: '1.0'
+        version: '1.0',
     });
 
     server.registerTool(
-        "enviar_sticker",
+        'enviar_sticker',
         {
-            description: "Converte uma imagem (PNG/JPG) em figurinha do WhatsApp e envia para o JID informado.",
+            description:
+                'Converte uma imagem (PNG/JPG) em figurinha do WhatsApp e envia para o JID informado.',
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                mediaBase64: z.string().describe("Imagem em base64, sem o prefixo 'data:image/...;base64,'")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                mediaBase64: z
+                    .string()
+                    .describe("Imagem em base64, sem o prefixo 'data:image/...;base64,'"),
+            },
         },
-        enviarStickerHandler
+        enviarStickerHandler,
     );
 
     server.registerTool(
-        "enviar_texto",
+        'enviar_texto',
         {
-            description: "Envia uma mensagem de texto para o JID informado.",
+            description: 'Envia uma mensagem de texto para o JID informado.',
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                texto: z.string().describe("Conteúdo da mensagem. Suporta formatação Markdown do WhatsApp (*negrito*, _itálico_, ~tachado~).")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                texto: z
+                    .string()
+                    .describe(
+                        'Conteúdo da mensagem. Suporta formatação Markdown do WhatsApp (*negrito*, _itálico_, ~tachado~).',
+                    ),
+            },
         },
-        enviarTextoHandler
+        enviarTextoHandler,
     );
 
     server.registerTool(
-        "enviar_imagem",
+        'enviar_imagem',
         {
-            description: "Envia uma imagem (PNG/JPG) para o JID informado, opcionalmente com legenda.",
+            description:
+                'Envia uma imagem (PNG/JPG) para o JID informado, opcionalmente com legenda.',
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                mediaBase64: z.string().describe("Imagem em base64, sem o prefixo 'data:image/...;base64,'"),
-                legenda: z.string().optional().describe("Legenda opcional da imagem.")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                mediaBase64: z
+                    .string()
+                    .describe("Imagem em base64, sem o prefixo 'data:image/...;base64,'"),
+                legenda: z.string().optional().describe('Legenda opcional da imagem.'),
+            },
         },
-        enviarImagemHandler
+        enviarImagemHandler,
     );
 
     server.registerTool(
-        "enviar_audio",
+        'enviar_audio',
         {
-            description: "Envia um áudio como NOTA DE VOZ (PTT) do WhatsApp para o JID. Recebe o áudio em base64 (ex: WAV do TTS); o bot converte para opus e envia como voz.",
+            description:
+                'Envia um áudio como NOTA DE VOZ (PTT) do WhatsApp para o JID. Recebe o áudio em base64 (ex: WAV do TTS); o bot converte para opus e envia como voz.',
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                mediaBase64: z.string().describe("Áudio em base64 (WAV/MP3/etc), sem prefixo 'data:'.")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                mediaBase64: z
+                    .string()
+                    .describe("Áudio em base64 (WAV/MP3/etc), sem prefixo 'data:'."),
+            },
         },
-        enviarAudioHandler
+        enviarAudioHandler,
     );
 
     server.registerTool(
-        "reagir",
+        'reagir',
         {
-            description: "Reage à mensagem original com um emoji. Use para sinalizar progresso (⏳, ✅, ❌, 💅, etc).",
+            description:
+                'Reage à mensagem original com um emoji. Use para sinalizar progresso (⏳, ✅, ❌, 💅, etc).',
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                msgKey: z.object({
-                    id: z.string(),
-                    remoteJid: z.string(),
-                    fromMe: z.boolean().optional(),
-                    participant: z.string().optional()
-                }).describe("Chave da mensagem original (msg.key vinda do Baileys)."),
-                emoji: z.string().describe("Emoji da reação (ex: '⏳'). Passar string vazia remove a reação.")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                msgKey: z
+                    .object({
+                        id: z.string(),
+                        remoteJid: z.string(),
+                        fromMe: z.boolean().optional(),
+                        participant: z.string().optional(),
+                    })
+                    .describe('Chave da mensagem original (msg.key vinda do Baileys).'),
+                emoji: z
+                    .string()
+                    .describe("Emoji da reação (ex: '⏳'). Passar string vazia remove a reação."),
+            },
         },
-        reagirHandler
+        reagirHandler,
     );
 
     server.registerTool(
-        "charts_lastfm",
+        'charts_lastfm',
         {
-            description: "Retorna as 10 músicas mais ouvidas na última semana de um usuário do Last.fm (texto). Requer o nome de usuário do Last.fm.",
+            description:
+                'Retorna as 10 músicas mais ouvidas na última semana de um usuário do Last.fm (texto). Requer o nome de usuário do Last.fm.',
             inputSchema: {
-                usuario: z.string().describe("Nome de usuário no Last.fm.")
-            }
+                usuario: z.string().describe('Nome de usuário no Last.fm.'),
+            },
         },
-        chartsLastfmHandler
+        chartsLastfmHandler,
     );
 
     server.registerTool(
-        "baixar_musica",
+        'baixar_musica',
         {
-            description: "Baixa o áudio (mp3) de um link do YouTube e ENVIA como áudio para o JID. Use para 'baixa essa música <link>'.",
+            description:
+                "Baixa o áudio (mp3) de um link do YouTube e ENVIA como áudio para o JID. Use para 'baixa essa música <link>'.",
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                url: z.string().describe("Link do YouTube da música.")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                url: z.string().describe('Link do YouTube da música.'),
+            },
         },
-        baixarMusicaHandler
+        baixarMusicaHandler,
     );
 
     server.registerTool(
-        "baixar_video_youtube",
+        'baixar_video_youtube',
         {
-            description: "Baixa um vídeo do YouTube e ENVIA como vídeo para o JID. Use para 'baixa esse vídeo <link>'.",
+            description:
+                "Baixa um vídeo do YouTube e ENVIA como vídeo para o JID. Use para 'baixa esse vídeo <link>'.",
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                url: z.string().describe("Link do YouTube do vídeo.")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                url: z.string().describe('Link do YouTube do vídeo.'),
+            },
         },
-        baixarVideoYoutubeHandler
+        baixarVideoYoutubeHandler,
     );
 
     server.registerTool(
-        "baixar_video_twitter",
+        'baixar_video_twitter',
         {
-            description: "Baixa um vídeo de um link do Twitter/X (twitter.com ou x.com) e ENVIA como vídeo para o JID. Use para 'baixa esse vídeo <link>' quando o link for do Twitter/X.",
+            description:
+                "Baixa um vídeo de um link do Twitter/X (twitter.com ou x.com) e ENVIA como vídeo para o JID. Use para 'baixa esse vídeo <link>' quando o link for do Twitter/X.",
             inputSchema: {
-                jid: z.string().describe("JID do destinatário (ex: 5547999999999@s.whatsapp.net)"),
-                url: z.string().describe("Link do Twitter/X do vídeo (twitter.com ou x.com).")
-            }
+                jid: z.string().describe('JID do destinatário (ex: 5547999999999@s.whatsapp.net)'),
+                url: z.string().describe('Link do Twitter/X do vídeo (twitter.com ou x.com).'),
+            },
         },
-        baixarVideoTwitterHandler
+        baixarVideoTwitterHandler,
     );
 
     server.registerTool(
-        "agendar_mensagem",
+        'agendar_mensagem',
         {
-            description: "Agenda o envio de uma mensagem (lembrete) para um JID em um horário futuro. " +
+            description:
+                'Agenda o envio de uma mensagem (lembrete) para um JID em um horário futuro. ' +
                 "Use tipo='recorrente' com cron_expression (ex: '0 8 * * *' = todo dia 8h) ou " +
                 "tipo='once' com run_at (data/hora ISO 8601 com offset). O envio vai SEMPRE para o `jid` informado.",
             inputSchema: {
-                jid: z.string().describe("JID do chat de ORIGEM/destino (grupo @g.us ou privado @s.whatsapp.net)."),
-                mensagem: z.string().describe("Texto do lembrete a ser enviado no horário. Suporta Markdown do WhatsApp."),
-                tipo: z.enum(['once', 'recorrente']).describe("'once' = uma vez; 'recorrente' = repete pelo cron."),
-                cron_expression: z.string().optional().describe("Expressão cron (obrigatória se tipo='recorrente'). Ex: '0 8 * * 1' = seg 8h."),
-                run_at: z.string().optional().describe("Data/hora ISO 8601 com offset (obrigatória se tipo='once'). Ex: '2026-06-04T14:00:00-03:00'."),
+                jid: z
+                    .string()
+                    .describe(
+                        'JID do chat de ORIGEM/destino (grupo @g.us ou privado @s.whatsapp.net).',
+                    ),
+                mensagem: z
+                    .string()
+                    .describe(
+                        'Texto do lembrete a ser enviado no horário. Suporta Markdown do WhatsApp.',
+                    ),
+                tipo: z
+                    .enum(['once', 'recorrente'])
+                    .describe("'once' = uma vez; 'recorrente' = repete pelo cron."),
+                cron_expression: z
+                    .string()
+                    .optional()
+                    .describe(
+                        "Expressão cron (obrigatória se tipo='recorrente'). Ex: '0 8 * * 1' = seg 8h.",
+                    ),
+                run_at: z
+                    .string()
+                    .optional()
+                    .describe(
+                        "Data/hora ISO 8601 com offset (obrigatória se tipo='once'). Ex: '2026-06-04T14:00:00-03:00'.",
+                    ),
                 timezone: z.string().optional().describe("Fuso (default 'America/Sao_Paulo')."),
-                solicitante: z.string().optional().describe("Identidade CONFIÁVEL de quem pediu (passe o remetente_numero do contexto). Vira a base de permissão p/ cancelar/editar depois."),
-                urgente: z.boolean().optional().describe("Se true (só para tipo='once'), reenvia a cada 3min até o solicitante responder no chat.")
-            }
+                solicitante: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'Identidade CONFIÁVEL de quem pediu (passe o remetente_numero do contexto). Vira a base de permissão p/ cancelar/editar depois.',
+                    ),
+                urgente: z
+                    .boolean()
+                    .optional()
+                    .describe(
+                        "Se true (só para tipo='once'), reenvia a cada 3min até o solicitante responder no chat.",
+                    ),
+            },
         },
-        agendarMensagemHandler
+        agendarMensagemHandler,
     );
 
     server.registerTool(
-        "listar_agendamentos",
+        'listar_agendamentos',
         {
-            description: "Lista os agendamentos (lembretes) ativos de um chat. Retorna JSON com id, mensagem, tipo, cron_expression e run_at. " +
-                "O admin vê todos do chat; os demais veem só os que eles mesmos criaram.",
+            description:
+                'Lista os agendamentos (lembretes) ativos de um chat. Retorna JSON com id, mensagem, tipo, cron_expression e run_at. ' +
+                'O admin vê todos do chat; os demais veem só os que eles mesmos criaram.',
             inputSchema: {
-                jid: z.string().describe("JID do chat cujos agendamentos serão listados."),
-                solicitante: z.string().optional().describe("Identidade CONFIÁVEL de quem está pedindo (remetente_numero do contexto)."),
-                eh_admin: z.boolean().optional().describe("True se quem pede é o admin (vê todos do chat).")
-            }
+                jid: z.string().describe('JID do chat cujos agendamentos serão listados.'),
+                solicitante: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'Identidade CONFIÁVEL de quem está pedindo (remetente_numero do contexto).',
+                    ),
+                eh_admin: z
+                    .boolean()
+                    .optional()
+                    .describe('True se quem pede é o admin (vê todos do chat).'),
+            },
         },
-        listarAgendamentosHandler
+        listarAgendamentosHandler,
     );
 
     server.registerTool(
-        "cancelar_agendamento",
+        'cancelar_agendamento',
         {
-            description: "Cancela um agendamento (lembrete) ativo pelo id. Só cancela se o id pertencer ao chat E se quem pede for o admin ou quem criou o agendamento.",
+            description:
+                'Cancela um agendamento (lembrete) ativo pelo id. Só cancela se o id pertencer ao chat E se quem pede for o admin ou quem criou o agendamento.',
             inputSchema: {
-                jid: z.string().describe("JID do chat admin do agendamento."),
-                id: z.number().describe("Id do agendamento a cancelar (obtido via listar_agendamentos)."),
-                solicitante: z.string().optional().describe("Identidade CONFIÁVEL de quem está pedindo (remetente_numero do contexto)."),
-                eh_admin: z.boolean().optional().describe("True se quem pede é o admin (pode cancelar qualquer um).")
-            }
+                jid: z.string().describe('JID do chat admin do agendamento.'),
+                id: z
+                    .number()
+                    .describe('Id do agendamento a cancelar (obtido via listar_agendamentos).'),
+                solicitante: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'Identidade CONFIÁVEL de quem está pedindo (remetente_numero do contexto).',
+                    ),
+                eh_admin: z
+                    .boolean()
+                    .optional()
+                    .describe('True se quem pede é o admin (pode cancelar qualquer um).'),
+            },
         },
-        cancelarAgendamentoHandler
+        cancelarAgendamentoHandler,
     );
 
     server.registerTool(
-        "editar_agendamento",
+        'editar_agendamento',
         {
-            description: "Edita um agendamento (lembrete) PENDENTE pelo id: muda mensagem e/ou horário (run_at p/ once, cron_expression p/ recorrente) e/ou urgência. " +
-                "Só edita se o id pertencer ao chat E se quem pede for o admin ou quem criou. Informe apenas os campos que mudam.",
+            description:
+                'Edita um agendamento (lembrete) PENDENTE pelo id: muda mensagem e/ou horário (run_at p/ once, cron_expression p/ recorrente) e/ou urgência. ' +
+                'Só edita se o id pertencer ao chat E se quem pede for o admin ou quem criou. Informe apenas os campos que mudam.',
             inputSchema: {
-                jid: z.string().describe("JID do chat admin do agendamento."),
-                id: z.number().describe("Id do agendamento a editar (obtido via listar_agendamentos)."),
-                solicitante: z.string().optional().describe("Identidade CONFIÁVEL de quem está pedindo (remetente_numero do contexto)."),
-                eh_admin: z.boolean().optional().describe("True se quem pede é o admin (pode editar qualquer um)."),
-                mensagem: z.string().optional().describe("Novo texto do lembrete."),
-                run_at: z.string().optional().describe("Novo horário ISO 8601 com offset (só p/ tipo='once'). Ex: '2026-06-04T14:00:00-03:00'."),
-                cron_expression: z.string().optional().describe("Nova expressão cron (só p/ tipo='recorrente')."),
-                urgente: z.boolean().optional().describe("Liga/desliga a urgência (só faz efeito em tipo='once').")
-            }
+                jid: z.string().describe('JID do chat admin do agendamento.'),
+                id: z
+                    .number()
+                    .describe('Id do agendamento a editar (obtido via listar_agendamentos).'),
+                solicitante: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'Identidade CONFIÁVEL de quem está pedindo (remetente_numero do contexto).',
+                    ),
+                eh_admin: z
+                    .boolean()
+                    .optional()
+                    .describe('True se quem pede é o admin (pode editar qualquer um).'),
+                mensagem: z.string().optional().describe('Novo texto do lembrete.'),
+                run_at: z
+                    .string()
+                    .optional()
+                    .describe(
+                        "Novo horário ISO 8601 com offset (só p/ tipo='once'). Ex: '2026-06-04T14:00:00-03:00'.",
+                    ),
+                cron_expression: z
+                    .string()
+                    .optional()
+                    .describe("Nova expressão cron (só p/ tipo='recorrente')."),
+                urgente: z
+                    .boolean()
+                    .optional()
+                    .describe("Liga/desliga a urgência (só faz efeito em tipo='once')."),
+            },
         },
-        editarAgendamentoHandler
+        editarAgendamentoHandler,
     );
 
     server.registerTool(
-        "buscar_pessoa",
+        'buscar_pessoa',
         {
-            description: "Busca contatos CADASTRADOS pelo nome (case-insensitive, parcial). Use para resolver " +
+            description:
+                'Busca contatos CADASTRADOS pelo nome (case-insensitive, parcial). Use para resolver ' +
                 "o destinatário de um lembrete dirigido a OUTRA pessoa (ex.: 'lembre o João de...'). " +
-                "Retorna JSON [{nome, jid}]. Lista vazia = ninguém com esse nome; mais de um = pedir desambiguação.",
+                'Retorna JSON [{nome, jid}]. Lista vazia = ninguém com esse nome; mais de um = pedir desambiguação.',
             inputSchema: {
-                nome: z.string().describe("Nome (ou parte) do contato a procurar.")
-            }
+                nome: z.string().describe('Nome (ou parte) do contato a procurar.'),
+            },
         },
-        buscarContatoHandler
+        buscarContatoHandler,
     );
 
     server.registerTool(
-        "listar_pessoas",
+        'listar_pessoas',
         {
-            description: "Lista TODAS as pessoas cadastradas (nome e jid), sem filtro. Use para resolver menções a " +
-                "terceiros cadastrados mencionados por nome em uma mensagem. Retorna JSON [{nome, jid}].",
-            inputSchema: {}
+            description:
+                'Lista TODAS as pessoas cadastradas (nome e jid), sem filtro. Use para resolver menções a ' +
+                'terceiros cadastrados mencionados por nome em uma mensagem. Retorna JSON [{nome, jid}].',
+            inputSchema: {},
         },
-        listarPessoasHandler
+        listarPessoasHandler,
     );
 
     server.registerTool(
-        "listar_participantes_grupo",
+        'listar_participantes_grupo',
         {
-            description: "Lista os participantes de um GRUPO do WhatsApp (só os nomes). Use quando pedirem " +
+            description:
+                'Lista os participantes de um GRUPO do WhatsApp (só os nomes). Use quando pedirem ' +
                 "'quem está no grupo?', 'quem tá aqui?'. Retorna JSON [{nome, cadastrado}] — cadastrados vêm com o nome real; " +
                 "os demais com o número ou '(desconhecido)'. Em chat privado (não-grupo) retorna erro.",
             inputSchema: {
-                jid: z.string().describe("JID do grupo (use o usuario_jid do contexto; deve terminar em @g.us).")
-            }
+                jid: z
+                    .string()
+                    .describe(
+                        'JID do grupo (use o usuario_jid do contexto; deve terminar em @g.us).',
+                    ),
+            },
         },
-        listarParticipantesGrupoHandler
+        listarParticipantesGrupoHandler,
     );
 
     server.registerTool(
-        "enviar_mencao",
+        'enviar_mencao',
         {
-            description: "Posta uma mensagem no chat MENCIONANDO (@) pessoas, disparando a NOTIFICAÇÃO real do WhatsApp para quem é CADASTRADO. " +
+            description:
+                'Posta uma mensagem no chat MENCIONANDO (@) pessoas, disparando a NOTIFICAÇÃO real do WhatsApp para quem é CADASTRADO. ' +
                 "Use quando pedirem para avisar/mencionar/chamar alguém. Escreva a mensagem em 'texto' colocando @<nome> exatamente onde cada menção deve aparecer, " +
                 "e liste os nomes mencionados em 'nomes'. Quem não estiver cadastrado (ou não estiver no grupo) entra como texto puro, sem ping. " +
-                "Retorna JSON [{nome, pingado, motivo?}] — use para saber quem foi notificado de verdade.",
+                'Retorna JSON [{nome, pingado, motivo?}] — use para saber quem foi notificado de verdade.',
             inputSchema: {
-                jid: z.string().describe("JID do chat onde postar (use o usuario_jid do contexto)."),
-                texto: z.string().describe("Mensagem a enviar, com @<nome> no ponto de cada menção. Suporta Markdown do WhatsApp."),
-                nomes: z.array(z.string()).describe("Nomes das pessoas a mencionar (como o usuário as chamou).")
-            }
+                jid: z
+                    .string()
+                    .describe('JID do chat onde postar (use o usuario_jid do contexto).'),
+                texto: z
+                    .string()
+                    .describe(
+                        'Mensagem a enviar, com @<nome> no ponto de cada menção. Suporta Markdown do WhatsApp.',
+                    ),
+                nomes: z
+                    .array(z.string())
+                    .describe('Nomes das pessoas a mencionar (como o usuário as chamou).'),
+            },
         },
-        enviarMencaoHandler
+        enviarMencaoHandler,
     );
 
     server.registerTool(
-        "cadastrar_pessoa",
+        'cadastrar_pessoa',
         {
-            description: "Cadastra (ou atualiza) uma pessoa na agenda do bot a partir do nome e do número cru. " +
-                "Use quando pedirem para cadastrar/registrar alguém informando o telefone. O número é normalizado " +
-                "para a forma canônica do projeto (para casar com buscas futuras). A permissão (quem pode cadastrar) " +
-                "é controlada pelo agente — esta tool apenas grava.",
+            description:
+                'Cadastra (ou atualiza) uma pessoa na agenda do bot a partir do nome e do número cru. ' +
+                'Use quando pedirem para cadastrar/registrar alguém informando o telefone. O número é normalizado ' +
+                'para a forma canônica do projeto (para casar com buscas futuras). A permissão (quem pode cadastrar) ' +
+                'é controlada pelo agente — esta tool apenas grava.',
             inputSchema: {
-                nome: z.string().describe("Nome da pessoa a cadastrar."),
-                numero: z.string().describe("Número em qualquer formato: +55 11 91234-5678, 5511912345678, etc.")
-            }
+                nome: z.string().describe('Nome da pessoa a cadastrar.'),
+                numero: z
+                    .string()
+                    .describe('Número em qualquer formato: +55 11 91234-5678, 5511912345678, etc.'),
+            },
         },
-        cadastrarPessoaHandler
+        cadastrarPessoaHandler,
     );
 
     server.registerTool(
-        "gerar_e_enviar_semaninha",
+        'gerar_e_enviar_semaninha',
         {
-            description: "Gera a colagem 5×5 dos álbuns mais ouvidos da semana no Last.fm de um usuário e ENVIA a imagem para o JID. " +
+            description:
+                'Gera a colagem 5×5 dos álbuns mais ouvidos da semana no Last.fm de um usuário e ENVIA a imagem para o JID. ' +
                 "Use para 'semaninha do <usuario>'.",
             inputSchema: {
-                usuario: z.string().describe("Usuário do Last.fm."),
-                jid: z.string().describe("JID do destino (ex: 5547999999999@s.whatsapp.net ou grupo @g.us).")
-            }
+                usuario: z.string().describe('Usuário do Last.fm.'),
+                jid: z
+                    .string()
+                    .describe('JID do destino (ex: 5547999999999@s.whatsapp.net ou grupo @g.us).'),
+            },
         },
-        gerarEEnviarSemaninhaHandler
+        gerarEEnviarSemaninhaHandler,
     );
 
     return server;
 }
 
-app.post("/mcp", async (req: Request, res: Response) => {
+app.post('/mcp', async (req: Request, res: Response) => {
     const server = inicializarServidor();
     // omitir sessionIdGenerator → modo stateless (1 server por request, sem sessão persistente)
     const transport = new StreamableHTTPServerTransport({});

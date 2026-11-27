@@ -8,11 +8,14 @@ Este arquivo fornece orientações para o Claude Code (claude.ai/code) ao trabal
 npm run start           # tsx watch em src/index.ts (entrypoint)
 npm run start:debug     # tsx com --inspect para o debugger do Node
 npm run inspect:mcp     # inicia o @modelcontextprotocol/inspector contra o servidor MCP
+npm run lint            # eslint .
+npm run format:check    # prettier --check .
+npm test                # vitest run
 ```
 
-**Não há etapa de build, linter, nem framework de testes configurado** — o `tsx` executa TypeScript diretamente. O único `start` é modo de desenvolvimento (watch).
+Não há etapa de `build` (o `tsx` executa TypeScript diretamente — o único `start` watch é modo de desenvolvimento), mas lint (ESLint + Prettier) e testes (Vitest) estão configurados e rodam em CI (`.github/workflows/ci-whatsapp-bot.yml`, na raiz do monorepo).
 
-Docker: `docker compose -f docker.compose.yml up --build` (o arquivo se chama `docker.compose.yml`, e não o convencional `docker-compose.yml`). O contêiner monta `auth_info_baileys/` para que a sessão do WhatsApp sobreviva aos rebuilds.
+Docker: orquestrado pelo `docker-compose.yml` da **raiz do monorepo** (não deste diretório) — ele sobe `whatsapp-bot` e `agente` juntos. O contêiner monta `auth_info_baileys/` para que a sessão do WhatsApp sobreviva aos rebuilds.
 
 ## Pegadinhas do sistema de módulos
 
@@ -39,9 +42,11 @@ Os comandos são descobertos automaticamente: `carregarComandos()` lê todo arqu
 import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
 
 export default {
-    name: '/exemplo',                      // primeiro token digitado pelo usuário; convenção: barra inicial
+    name: '/exemplo', // primeiro token digitado pelo usuário; convenção: barra inicial
     description: '...',
-    execute: async (dto: ComandoExecutarDto) => { /* ... */ }
+    execute: async (dto: ComandoExecutarDto) => {
+        /* ... */
+    },
 };
 ```
 
@@ -59,6 +64,7 @@ O reload acontece **a cada mensagem recebida** (`carregarComandos()` é chamado 
 ### Serviços (`src/services/`)
 
 Cada um é uma classe instanciada por chamada de comando (sem container de DI). Os mais notáveis:
+
 - `GoogleCloudService` — geração de texto + imagem do Gemini. **Não é mais usado pelo `/p`** (que virou ponte para o `agente/`); fica disponível para outros comandos que ainda precisem chamar Gemini direto. A persona/dicionário de gírias hardcoded aqui foi migrada para `agente/src/agente/agent/instruction.py` — se editar a persona, edite no agente.
 - `LastfmService` — usado pelo `/semaninha` para montar a colagem 5×5 de álbuns da semana. Faz fallback para a Search API do iTunes quando o Last.fm retorna a capa placeholder padrão (identificada pelo hash `2a96cbd8b46e442fc41c2b86b821562f`).
 - `whatsappService` (`src/services/whatsapp.service.ts`) — singleton que guarda o `WASocket` ativo, pensado para que o servidor MCP alcance a conexão viva. Atualmente `inicializarInstancia` **não é chamado** em `index.ts` (a linha está comentada), então a tool do MCP lançaria "Whatsapp Socket não inicializado" se fosse invocada.
@@ -68,6 +74,7 @@ Cada um é uma classe instanciada por chamada de comando (sem container de DI). 
 Sobe no boot (`startMcpServer()` chamado em `index.ts:160`) em `http://localhost:${MCP_PORT}/mcp` (default 3001), modo `StreamableHTTPServerTransport` **stateless** — 1 server novo por request HTTP, sem sessão persistente. `whatsappService.inicializarInstancia(sock)` é chamado em `connection === 'open'` (`index.ts:72`).
 
 Tools registradas hoje (todas usam `whatsappService.recuperarInstancia()` para acessar o socket vivo):
+
 - `enviar_texto(jid, texto)` — mensagem de texto.
 - `enviar_imagem(jid, mediaBase64, legenda?)` — imagem PNG/JPG.
 - `enviar_sticker(jid, mediaBase64)` — converte PNG/JPG em figurinha via `wa-sticker-formatter`.

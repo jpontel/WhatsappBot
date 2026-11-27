@@ -23,6 +23,10 @@ pydantic = ">=2.9,<3.0"
 pydantic-settings = ">=2.6,<3.0"
 httpx = ">=0.28,<1.0"
 sqlite-vec = "^0.1.9"
+# Exportador OTLP p/ tracing de agente (Langfuse Cloud). Não vem por default no
+# google-adk (só via extras all/gcp/test, que arrastam deps pesadas e
+# irrelevantes) — instalado solto. Ver google/adk/telemetry/setup.py.
+opentelemetry-exporter-otlp-proto-http = ">=1.36"
 # Memória visual (reconhecimento facial). insightface compila uma extensão no
 # build (precisa de build-essential no Dockerfile); onnxruntime/opencv vêm como
 # wheels. numpy fixado em <2 por compatibilidade com o insightface 0.7.x.
@@ -41,6 +45,15 @@ ruff = "^0.7"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+# E501 (linha longa) fora: o projeto tem comentários extensos em pt-BR
+# explicando decisões não-óbvias (ver CLAUDE.md) — forçar quebra de linha neles
+# não compensa o risco de reflow manual. ruff format cuida do código em si.
+ignore = ["E501"]
+
+[tool.ruff.format]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

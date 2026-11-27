@@ -19,7 +19,7 @@ function bloco(titulo: string, r: Resultado, resumo: boolean): string {
         const linhas = Object.entries(r.resumo ?? {}).map(([k, v]) => `  ${v}× ${k}`);
         return `*${titulo}* (${r.total}):\n${linhas.join('\n') || '  (nada)'}`;
     }
-    const linhas = (r.logs ?? []);
+    const linhas = r.logs ?? [];
     return `*${titulo}* (${r.total}):\n${linhas.join('\n') || '  (nada)'}`;
 }
 
@@ -29,7 +29,8 @@ export default {
 
     execute: async (dto: ComandoExecutarDto) => {
         const { sock, usuarioJid, conteudo, msg, ehAdmin } = dto;
-        const reagir = (t: string) => sock.sendMessage(usuarioJid, { react: { text: t, key: msg.key } });
+        const reagir = (t: string) =>
+            sock.sendMessage(usuarioJid, { react: { text: t, key: msg.key } });
 
         if (!ehAdmin) {
             await reagir('❌');
@@ -38,9 +39,12 @@ export default {
 
         const arg = conteudo.trim().toLowerCase();
         const resumo = arg === 'resumo';
-        const nivel = (arg === 'tudo' || arg === 'info') ? 'INFO'
-            : (arg === 'erros' || arg === 'erro') ? 'ERROR'
-                : 'WARNING';
+        const nivel =
+            arg === 'tudo' || arg === 'info'
+                ? 'INFO'
+                : arg === 'erros' || arg === 'erro'
+                  ? 'ERROR'
+                  : 'WARNING';
         const limite = 30;
 
         const bot = recuperarLogs({ nivel, limite, resumo }) as Resultado;
@@ -57,7 +61,9 @@ export default {
         }
 
         const cabecalho = `🗒️ *Logs* — nível ≥ ${nivel}${resumo ? ' (resumo)' : ''}`;
-        let texto = [cabecalho, bloco('BOT', bot, resumo), bloco('AGENTE', agente, resumo)].join('\n\n');
+        let texto = [cabecalho, bloco('BOT', bot, resumo), bloco('AGENTE', agente, resumo)].join(
+            '\n\n',
+        );
         if (texto.length > MAX_CHARS) texto = texto.slice(0, MAX_CHARS) + '\n…(cortado)';
 
         return await sock.sendMessage(usuarioJid, { text: texto });

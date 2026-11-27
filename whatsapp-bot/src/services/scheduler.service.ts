@@ -22,7 +22,9 @@ const NAG_MAX = 10;
 function comTimeout<T>(promessa: Promise<T>, ms: number): Promise<T> {
     return Promise.race([
         promessa,
-        new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`timeout de envio (${ms}ms)`)), ms)),
+        new Promise<T>((_, rej) =>
+            setTimeout(() => rej(new Error(`timeout de envio (${ms}ms)`)), ms),
+        ),
     ]);
 }
 
@@ -74,7 +76,9 @@ class SchedulerService {
         }
         const task = cron.schedule(
             ag.cron_expression,
-            () => { void this.disparar(ag, false); },
+            () => {
+                void this.disparar(ag, false);
+            },
             { timezone: ag.timezone },
         );
         this.tarefas.set(ag.id, { parar: () => task.stop() });
@@ -103,7 +107,9 @@ class SchedulerService {
             }
             return;
         }
-        const timer = setTimeout(() => { void this.disparar(ag, true); }, delay);
+        const timer = setTimeout(() => {
+            void this.disparar(ag, true);
+        }, delay);
         this.tarefas.set(ag.id, { parar: () => clearTimeout(timer) });
     }
 
@@ -161,7 +167,9 @@ class SchedulerService {
     }
 
     private agendarNag(id: number): void {
-        const timer = setInterval(() => { void this.nagTick(id); }, NAG_INTERVALO_MS);
+        const timer = setInterval(() => {
+            void this.nagTick(id);
+        }, NAG_INTERVALO_MS);
         this.tarefas.set(id, { parar: () => clearInterval(timer) });
     }
 
@@ -175,7 +183,10 @@ class SchedulerService {
         try {
             await this.enviar(ag);
         } catch (error) {
-            console.error(`⏰ Falha no reenvio (nag) do agendamento ${id}:`, (error as Error).message);
+            console.error(
+                `⏰ Falha no reenvio (nag) do agendamento ${id}:`,
+                (error as Error).message,
+            );
         }
         const count = agendamentoRepository.incrementarNag(id);
         if (count >= NAG_MAX) {

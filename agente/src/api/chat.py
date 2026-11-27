@@ -9,16 +9,16 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, HTTPException
 from google.genai import types
 
-from repo import memoria_repo, pendencias_repo, rosto_repo
-from shared import request_context
-from shared.mcp_client import chamar_mcp
-from shared.session_locks import lock_da_sessao
 from client import mencoes, roteador
 from client.classificador import Classificacao, classificar_turno
 from client.root_agent import runner
 from client.session import APP_NAME, session_service
 from config import settings
+from repo import memoria_repo, pendencias_repo, rosto_repo
 from schemas.chat import ChatRequest, ChatResponse
+from shared import request_context
+from shared.mcp_client import chamar_mcp
+from shared.session_locks import lock_da_sessao
 from tools.tools import gerar_e_enviar_audio
 
 logger = logging.getLogger(__name__)
@@ -27,11 +27,15 @@ router = APIRouter()
 # Mensagens amigáveis (na persona) para falhas de IA que NÃO são bug nosso:
 # sem isso o usuário só veria o ❌ genérico do bot. Texto curto e informal.
 _MSG_SEM_CREDITO = "estourou os tokens!!!! 😵‍💫"
-_MSG_SOBRECARGA = "tô meio sobrecarregada agora 😮‍💨 tenta de novo daqui a pouco que eu te respondo 🥲"
+_MSG_SOBRECARGA = (
+    "tô meio sobrecarregada agora 😮‍💨 tenta de novo daqui a pouco que eu te respondo 🥲"
+)
 _MSG_TOOL_INEXISTENTE = "não encontrei a ferramenta necessária para atender esse pedido. esclarece melhor o que tu quer ou cai fora! bjokas 💋"
 # Falha transiente/desconhecida: marcamos a conversa PENDENTE e avisamos UMA vez
 # que vamos re-tentar sozinhos (a rotina de retry cuida do resto).
-_MSG_PENDENTE = "perai, rolou alguma coisa aqui no meu sistema, vou dar uma olhada aqui e já retorno :p"
+_MSG_PENDENTE = (
+    "perai, rolou alguma coisa aqui no meu sistema, vou dar uma olhada aqui e já retorno :p"
+)
 
 
 def _mensagem_amigavel_para(exc: Exception) -> str | None:
@@ -43,7 +47,13 @@ def _mensagem_amigavel_para(exc: Exception) -> str | None:
     msg = str(exc).lower()
     if "credits are depleted" in msg or "billing" in msg:
         return _MSG_SEM_CREDITO
-    if "resource_exhausted" in msg or "unavailable" in msg or "overloaded" in msg or "429" in msg or "503" in msg:
+    if (
+        "resource_exhausted" in msg
+        or "unavailable" in msg
+        or "overloaded" in msg
+        or "429" in msg
+        or "503" in msg
+    ):
         return _MSG_SOBRECARGA
     # O LLM às vezes alucina o nome de uma tool (ex.: "enviar_sticker_gerado" no
     # lugar de "gerar_e_enviar_sticker"). O ADK levanta ValueError e o turno
@@ -62,13 +72,17 @@ async def _reagir(req: ChatRequest, emoji: str) -> None:
     inclusive conversa). Falha de reação nunca derruba o turno.
     """
     try:
-        await chamar_mcp("reagir", {
-            "jid": req.chatId,
-            "msgKey": req.msgKey.model_dump(exclude_none=True),
-            "emoji": emoji,
-        })
+        await chamar_mcp(
+            "reagir",
+            {
+                "jid": req.chatId,
+                "msgKey": req.msgKey.model_dump(exclude_none=True),
+                "emoji": emoji,
+            },
+        )
     except Exception:  # noqa: BLE001
         logger.warning("Falha ao reagir %r em %s", emoji, req.chatId, exc_info=True)
+
 
 def _montar_conteudo(
     req: ChatRequest,
@@ -77,8 +91,8 @@ def _montar_conteudo(
     classif: Classificacao | None = None,
 ) -> types.Content:
     rem = req.remetente
-    remetente_nome = (rem.nome if rem and rem.nome else "desconhecido")
-    remetente_numero = (rem.numero if rem and rem.numero else "?")
+    remetente_nome = rem.nome if rem and rem.nome else "desconhecido"
+    remetente_numero = rem.numero if rem and rem.numero else "?"
     registrado = "sim" if (rem and rem.registrado) else "nao"
     eh_admin = "sim" if (rem and rem.ehAdmin) else "nao"
 
@@ -107,8 +121,7 @@ def _montar_conteudo(
     if req.citacao and req.citacao.texto:
         autor = req.citacao.autor or "?"
         bloco_citacao = (
-            f"mensagem_citada_autor: {autor}\n"
-            f"mensagem_citada_texto: {req.citacao.texto}\n"
+            f"mensagem_citada_autor: {autor}\n" f"mensagem_citada_texto: {req.citacao.texto}\n"
         )
 
     # Pode conter mais de um bloco "[sobre <nome>]" — do remetente e/ou de
@@ -167,9 +180,7 @@ async def _garantir_sessao(chat_id: str) -> None:
         app_name=APP_NAME, user_id=chat_id, session_id=chat_id
     )
     if sessao is None:
-        await session_service.create_session(
-            app_name=APP_NAME, user_id=chat_id, session_id=chat_id
-        )
+        await session_service.create_session(app_name=APP_NAME, user_id=chat_id, session_id=chat_id)
 
 
 async def _bloco_memoria(numero: str, emb: list[float], rotulo: str) -> str:
@@ -384,9 +395,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
                 # Depois das reações (para não disparar o 💅 de "ação" numa
                 # conversa): às vezes a resposta vira nota de voz em vez de texto.
-                texto_final = await _talvez_responder_em_audio(
-                    req, texto_final, tools_acionadas
-                )
+                texto_final = await _talvez_responder_em_audio(req, texto_final, tools_acionadas)
             finally:
                 request_context.limpar_rota(token_rota)
                 request_context.limpar_contexto(token_ctx)

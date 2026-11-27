@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     # ~(1 - prob) dos turnos. Só vale p/ texto puro, curto e quando NENHUMA mídia
     # já foi enviada no turno. `ativo=false` é o kill switch. Tunável.
     audio_espontaneo_ativo: bool = True
-    audio_espontaneo_prob: float = 0.12       # chance de virar áudio (~12%); o resto é texto
-    audio_espontaneo_texto_max: int = 350     # acima disso NÃO vira áudio (TTS fica longo/lento)
+    audio_espontaneo_prob: float = 0.12  # chance de virar áudio (~12%); o resto é texto
+    audio_espontaneo_texto_max: int = 350  # acima disso NÃO vira áudio (TTS fica longo/lento)
     # Geração de MÚSICA (Lyria 3). O `clip` gera clipes de ~30s (versão limitada);
     # o `pro` faria músicas longas (não usado, mais caro). Devolve MP3 base64.
     gemini_music_model: str = "lyria-3-clip-preview"
@@ -94,9 +94,17 @@ class Settings(BaseSettings):
     classificador_timeout_seg: float = 5.0
 
     # --- Observabilidade / logs (ring buffer em memória) -------------------------
-    log_buffer_max: int = 500       # nº de registros mantidos em memória
-    log_limite_max: int = 100       # teto de registros por recuperação (disciplina de token)
-    log_msg_max: int = 300          # truncamento da mensagem de cada registro
+    log_buffer_max: int = 500  # nº de registros mantidos em memória
+    log_limite_max: int = 100  # teto de registros por recuperação (disciplina de token)
+    log_msg_max: int = 300  # truncamento da mensagem de cada registro
+
+    # --- Observabilidade externa: tracing de agente (Langfuse, via OTLP) --------
+    # Trace por turno de /chat: tool calls do LlmAgent (inclusive as chamadas MCP
+    # pro bot), tokens, latência, modelo usado. `langfuse_public_key` VAZIO = kill
+    # switch (não paga overhead de tracing sem conta configurada, ex. dev local).
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
 
     # Baldes de estilo por tom (gate). SÃO APENAS os 9 `estilos_resposta` atuais
     # reparticionados — nenhum estilo novo. O balde `serio` usa os MENOS agressivos
@@ -139,8 +147,8 @@ class Settings(BaseSettings):
     # o gate de identidade vive no tool_filter do toolset (root_agent.py).
     # `notes_mcp_url` VAZIO = integração DESLIGADA (kill switch) — não registra o
     # toolset nem adiciona nada ao prompt. Ver docs/PLANO-apple-notes-mcp.md.
-    notes_mcp_url: str = ""                  # ex.: http://<ip-tailnet-do-mac>:8787/mcp
-    notes_mcp_token: str = ""               # bearer p/ a ponte (NUNCA no YAML versionado)
+    notes_mcp_url: str = ""  # ex.: http://<ip-tailnet-do-mac>:8787/mcp
+    notes_mcp_token: str = ""  # bearer p/ a ponte (NUNCA no YAML versionado)
     # Timeout do handshake/listagem de tools. CURTO de propósito: o ADK resolve
     # TODOS os toolsets a cada turno (antes do roteador podar), e com o Mac fora do
     # ar o @retry_on_errors do ADK re-tenta 1x → custo ~2×timeout por turno. ~4s
@@ -186,7 +194,7 @@ class Settings(BaseSettings):
     embedding_model: str = "gemini-embedding-001"
     embedding_dim: int = 768
     memoria_top_k: int = 5
-    memoria_distancia_max: float = 1.0   # acima disso, irrelevante p/ injetar
+    memoria_distancia_max: float = 1.0  # acima disso, irrelevante p/ injetar
     memoria_distancia_dedup: float = 0.15  # abaixo disso, considera duplicata
     memoria_max_por_pessoa: int = 200
 
@@ -202,37 +210,37 @@ class Settings(BaseSettings):
 
     # Memória visual (reconhecimento facial, sqlite-vec — espaço SEPARADO do
     # texto: modelo dedicado de face-recognition, NÃO o gemini-embedding-001).
-    rosto_model: str = "buffalo_l"          # pacote InsightFace (buffalo_s = + leve)
-    rosto_embedding_dim: int = 512          # ArcFace
+    rosto_model: str = "buffalo_l"  # pacote InsightFace (buffalo_s = + leve)
+    rosto_embedding_dim: int = 512  # ArcFace
     # Limiar de distância L2 (sobre embeddings normalizados, ≈ cosseno) para
     # considerar "mesma pessoa". CALIBRAR empiricamente com fotos reais —
     # acima disso, NÃO é match (segue desconhecido).
     rosto_distancia_max: float = 0.9
-    rosto_distancia_dedup: float = 0.2      # abaixo disso, foto ~idêntica (não duplica)
-    rosto_max_faces_por_turno: int = 3      # teto de rostos reconhecidos por imagem
-    rosto_max_por_pessoa: int = 5           # teto de vetores (ângulos) por pessoa
-    rosto_gen_max_pessoas: int = 4          # teto de pessoas/refs por geração de imagem
+    rosto_distancia_dedup: float = 0.2  # abaixo disso, foto ~idêntica (não duplica)
+    rosto_max_faces_por_turno: int = 3  # teto de rostos reconhecidos por imagem
+    rosto_max_por_pessoa: int = 5  # teto de vetores (ângulos) por pessoa
+    rosto_gen_max_pessoas: int = 4  # teto de pessoas/refs por geração de imagem
 
     # Rate limit de GERAÇÃO de imagens por usuário (anti-abuso/custo), em janela
     # DESLIZANTE (mesma mecânica da música — `_checar_limite_geracao`). Conta só
     # geração/edição com IA (Gemini); busca de imagem na web e áudio (TTS) não
     # entram. Cada imagem ~512px custa ≈ US$0,045. Tunável.
-    imagem_rate_max: int = 10               # máx. de imagens na janela
-    imagem_rate_janela_seg: int = 300       # janela em segundos (5 min)
+    imagem_rate_max: int = 10  # máx. de imagens na janela
+    imagem_rate_janela_seg: int = 300  # janela em segundos (5 min)
 
     # Rate limit de GERAÇÃO de música (Lyria) por usuário — contador INDEPENDENTE
     # do de imagem (gerar música não consome o teto de imagem e vice-versa). Mesma
     # mecânica de janela deslizante. Ver `_checar_limite_musica`.
-    musica_rate_max: int = 5                # máx. de músicas na janela
-    musica_rate_janela_seg: int = 300       # janela em segundos (5 min)
+    musica_rate_max: int = 5  # máx. de músicas na janela
+    musica_rate_janela_seg: int = 300  # janela em segundos (5 min)
 
     # Auto-recuperação de turnos do /chat que falharam de forma transiente. A
     # conversa vira PENDENTE no banco e uma rotina re-tenta de tempos em tempos.
-    pendencia_intervalo_seg: int = 600      # intervalo entre varreduras da rotina (10 min)
-    pendencia_max_tentativas: int = 3       # após isso, desiste e avisa o admin
-    pendencia_contexto_max: int = 10        # teto de mensagens de contexto reinjetadas no retry
-    pendencia_lote_max: int = 50            # máx. de pendências processadas por varredura
-    admin_jid: str = ""                     # JID/numero do admin p/ avisos (ex.: desistência) — lido de ADMIN_JID
+    pendencia_intervalo_seg: int = 600  # intervalo entre varreduras da rotina (10 min)
+    pendencia_max_tentativas: int = 3  # após isso, desiste e avisa o admin
+    pendencia_contexto_max: int = 10  # teto de mensagens de contexto reinjetadas no retry
+    pendencia_lote_max: int = 50  # máx. de pendências processadas por varredura
+    admin_jid: str = ""  # JID/numero do admin p/ avisos (ex.: desistência) — lido de ADMIN_JID
 
     host: str = "0.0.0.0"
     port: int = 8000

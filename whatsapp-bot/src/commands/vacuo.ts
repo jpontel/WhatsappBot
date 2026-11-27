@@ -10,7 +10,8 @@ export default {
 
     execute: async (dto: ComandoExecutarDto) => {
         const { sock, msg, usuarioJid, conteudo, ehAdmin } = dto;
-        const reagir = (text: string) => sock.sendMessage(usuarioJid, { react: { text, key: msg.key } });
+        const reagir = (text: string) =>
+            sock.sendMessage(usuarioJid, { react: { text, key: msg.key } });
 
         if (!isJidGroup(usuarioJid)) {
             await reagir('❌');
@@ -32,7 +33,9 @@ export default {
 
         if (!ehAdmin) {
             await reagir('❌');
-            return await sock.sendMessage(usuarioJid, { text: 'só o admin liga/desliga o anti-vácuo 😤' });
+            return await sock.sendMessage(usuarioJid, {
+                text: 'só o admin liga/desliga o anti-vácuo 😤',
+            });
         }
 
         if (opcao === 'on' || opcao === 'ligar' || opcao === 'ativar') {
@@ -46,10 +49,14 @@ export default {
         if (opcao === 'off' || opcao === 'desligar' || opcao === 'desativar') {
             desabilitar(usuarioJid);
             await reagir('✅');
-            return await sock.sendMessage(usuarioJid, { text: 'beleza, anti-vácuo *desligado* nesse grupo 😴' });
+            return await sock.sendMessage(usuarioJid, {
+                text: 'beleza, anti-vácuo *desligado* nesse grupo 😴',
+            });
         }
 
         await reagir('❌');
-        return await sock.sendMessage(usuarioJid, { text: 'não entendi 🤨 usa /vacuo on ou /vacuo off' });
+        return await sock.sendMessage(usuarioJid, {
+            text: 'não entendi 🤨 usa /vacuo on ou /vacuo off',
+        });
     },
 };

@@ -39,12 +39,14 @@ class RingBufferHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            _buffer.append({
-                "ts": record.created,
-                "nivel": record.levelname,
-                "comp": record.name,
-                "msg": record.getMessage(),
-            })
+            _buffer.append(
+                {
+                    "ts": record.created,
+                    "nivel": record.levelname,
+                    "comp": record.name,
+                    "msg": record.getMessage(),
+                }
+            )
         except Exception:  # noqa: BLE001 - logging nunca derruba o app
             pass
 
@@ -71,7 +73,8 @@ def recuperar(
     limite = max(1, min(limite, settings.log_limite_max))
 
     itens = [
-        r for r in _buffer
+        r
+        for r in _buffer
         if _NIVEIS.get(r["nivel"], 0) >= minimo and (not comp or comp in r["comp"])
     ][-limite:]
 

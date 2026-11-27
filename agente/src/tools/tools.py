@@ -11,11 +11,10 @@ import httpx
 from google import genai
 from google.genai import types
 
+from config import settings
 from repo import memoria_repo, rosto_repo
 from shared import log_buffer, request_context
 from shared.mcp_client import chamar_mcp, chamar_mcp_texto
-from config import settings
-
 
 # --- Rate limit de GERAÇÃO de imagens por usuário ----------------------------
 # Cada chamada à API de imagem do Gemini custa; este teto evita que um usuário
@@ -159,8 +158,12 @@ async def editar_imagem(prompt: str, imagem: dict) -> dict:
     response = await client.aio.models.generate_content(
         model=settings.gemini_image_model,
         contents=[
-            types.Part(inline_data=types.Blob(data=raw, mime_type=imagem.get("mimetype") or "image/jpeg")),
-            types.Part(text=f"Edite esta imagem conforme o pedido (mantenha o resto fiel ao original): {prompt}"),
+            types.Part(
+                inline_data=types.Blob(data=raw, mime_type=imagem.get("mimetype") or "image/jpeg")
+            ),
+            types.Part(
+                text=f"Edite esta imagem conforme o pedido (mantenha o resto fiel ao original): {prompt}"
+            ),
         ],
         config=types.GenerateContentConfig(
             image_config=types.ImageConfig(image_size="512px"),
@@ -470,16 +473,18 @@ async def buscar_artigos(query: str) -> dict:
     for p in dados.get("data", []):
         tldr = (p.get("tldr") or {}).get("text") or ""
         pdf = (p.get("openAccessPdf") or {}).get("url") or ""
-        artigos.append({
-            "titulo": p.get("title", ""),
-            "ano": p.get("year"),
-            "autores": _autores_resumidos(p.get("authors") or []),
-            "tldr": tldr,
-            "citacoes": p.get("citationCount"),
-            "venue": p.get("venue", ""),
-            "url": p.get("url", ""),
-            "pdf_aberto": pdf,
-        })
+        artigos.append(
+            {
+                "titulo": p.get("title", ""),
+                "ano": p.get("year"),
+                "autores": _autores_resumidos(p.get("authors") or []),
+                "tldr": tldr,
+                "citacoes": p.get("citationCount"),
+                "venue": p.get("venue", ""),
+                "url": p.get("url", ""),
+                "pdf_aberto": pdf,
+            }
+        )
     if not artigos:
         return {"erro": "Nenhum artigo encontrado para essa busca."}
     return {"artigos": artigos}
@@ -545,16 +550,18 @@ async def deepsearch_artigos(
             for a in w.get("authorships", [])
         ]
         loc = (w.get("primary_location") or {}).get("source") or {}
-        artigos.append({
-            "titulo": w.get("title", ""),
-            "ano": w.get("publication_year"),
-            "autores": _autores_resumidos(autores),
-            "resumo": _remontar_abstract(w.get("abstract_inverted_index") or {}),
-            "citacoes": w.get("cited_by_count"),
-            "venue": loc.get("display_name", ""),
-            "url": w.get("doi") or w.get("id", ""),
-            "open_access": (w.get("open_access") or {}).get("is_oa", False),
-        })
+        artigos.append(
+            {
+                "titulo": w.get("title", ""),
+                "ano": w.get("publication_year"),
+                "autores": _autores_resumidos(autores),
+                "resumo": _remontar_abstract(w.get("abstract_inverted_index") or {}),
+                "citacoes": w.get("cited_by_count"),
+                "venue": loc.get("display_name", ""),
+                "url": w.get("doi") or w.get("id", ""),
+                "open_access": (w.get("open_access") or {}).get("is_oa", False),
+            }
+        )
     if not artigos:
         return {"erro": "Nenhum artigo encontrado para essa busca."}
     return {"artigos": artigos}
@@ -575,8 +582,10 @@ async def buscar_imagem(query: str) -> dict:
         `gerar_imagem`). Em caso de falha: `{"erro": "..."}`.
     """
     # User-Agent de navegador: muitos sites respondem 403 a clientes sem UA.
-    headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-               "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    }
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers=headers) as client:
             resp = await client.post(
@@ -702,7 +711,9 @@ async def editar_e_enviar_imagem(prompt: str, jid: str) -> dict:
     """
     midia = request_context.midia_atual()
     if not midia:
-        return {"erro": "Não recebi imagem neste turno — peça para a pessoa enviar ou citar uma foto."}
+        return {
+            "erro": "Não recebi imagem neste turno — peça para a pessoa enviar ou citar uma foto."
+        }
     return await _entregar(editar_imagem(prompt, midia), "enviar_imagem", jid)
 
 
@@ -715,7 +726,9 @@ async def editar_e_enviar_sticker(prompt: str, jid: str) -> dict:
     """
     midia = request_context.midia_atual()
     if not midia:
-        return {"erro": "Não recebi imagem neste turno — peça para a pessoa enviar ou citar uma foto."}
+        return {
+            "erro": "Não recebi imagem neste turno — peça para a pessoa enviar ou citar uma foto."
+        }
     return await _entregar(editar_imagem(prompt, midia), "enviar_sticker", jid)
 
 
@@ -914,7 +927,9 @@ async def registrar_rosto(numero: str, nome: str) -> dict:
     try:
         embs = await rosto_repo.gerar_embeddings_faciais(midia, 1)
         if not embs:
-            return {"erro": "Não achei um rosto nítido na foto — manda uma foto mais clara do rosto."}
+            return {
+                "erro": "Não achei um rosto nítido na foto — manda uma foto mais clara do rosto."
+            }
         alvo = numero.strip()
         resultado = await rosto_repo.salvar_rosto(alvo, nome, embs[0])
         # Guarda também a FOTO (não só o vetor): é ela que alimenta a geração de
@@ -943,7 +958,9 @@ async def esquecer_rosto(numero: str) -> dict:
         n = await rosto_repo.esquecer_rosto(numero.strip())
     except Exception as exc:  # noqa: BLE001
         return {"erro": f"Falha ao esquecer rosto: {exc}"}
-    return {"status": "ok", "removidos": n} if n else {"erro": "Essa pessoa não tem rosto cadastrado."}
+    return (
+        {"status": "ok", "removidos": n} if n else {"erro": "Essa pessoa não tem rosto cadastrado."}
+    )
 
 
 def _melhor_contato(nome_buscado: str, contatos: list[dict]) -> dict | None:
@@ -1009,11 +1026,15 @@ async def gerar_e_enviar_imagem_com_pessoas(
             return {"erro": f"Falha ao resolver '{nome}': {res['erro']}"}
         contatos = res.get("contatos", [])
         if not contatos:
-            return {"erro": f"Não encontrei '{nome}' cadastrado(a) — confirme o nome ou cadastre antes."}
+            return {
+                "erro": f"Não encontrei '{nome}' cadastrado(a) — confirme o nome ou cadastre antes."
+            }
         melhor = _melhor_contato(nome, contatos)
         if melhor is None:
             opcoes = ", ".join(f"{c['nome']} ({c['jid'].split('@')[0]})" for c in contatos)
-            return {"erro": f"Mais de uma pessoa bate com '{nome}' ({opcoes}) — peça pra especificar o número."}
+            return {
+                "erro": f"Mais de uma pessoa bate com '{nome}' ({opcoes}) — peça pra especificar o número."
+            }
         alvos.append((melhor["jid"], melhor["nome"]))
 
     nums = [numero for numero, _rotulo in alvos]
@@ -1024,9 +1045,13 @@ async def gerar_e_enviar_imagem_com_pessoas(
     # Compara por parte-de-usuário: o número pode vir com ou sem o sufixo
     # @s.whatsapp.net (foi o que quebrava entre grupos).
     achados = {rosto_repo.normalizar_numero(f["numero"]) for f in fotos}
-    faltando = [rotulo for numero, rotulo in alvos if rosto_repo.normalizar_numero(numero) not in achados]
+    faltando = [
+        rotulo for numero, rotulo in alvos if rosto_repo.normalizar_numero(numero) not in achados
+    ]
     if faltando:
-        return {"erro": f"Sem foto cadastrada para: {', '.join(faltando)}. Cadastre o rosto dessas pessoas (com foto) antes."}
+        return {
+            "erro": f"Sem foto cadastrada para: {', '.join(faltando)}. Cadastre o rosto dessas pessoas (com foto) antes."
+        }
     # Foto do turno (se houver) entra PRIMEIRO na lista de referências — é a cena
     # base a preservar. Sem isso, "adiciona o X nessa foto" perdia a foto
     # original e o Gemini inventava rostos genéricos pras pessoas citadas.
@@ -1168,16 +1193,19 @@ async def agendar_alerta(
     if erro:
         return {"erro": erro}
     try:
-        await chamar_mcp("agendar_mensagem", {
-            "jid": jid,
-            "mensagem": mensagem,
-            "tipo": tipo,
-            "cron_expression": cron_expression,
-            "run_at": run_at,
-            "timezone": timezone,
-            "urgente": urgente,
-            "solicitante": solicitante,
-        })
+        await chamar_mcp(
+            "agendar_mensagem",
+            {
+                "jid": jid,
+                "mensagem": mensagem,
+                "tipo": tipo,
+                "cron_expression": cron_expression,
+                "run_at": run_at,
+                "timezone": timezone,
+                "urgente": urgente,
+                "solicitante": solicitante,
+            },
+        )
     except Exception as exc:  # noqa: BLE001 - devolve erro pro modelo, não derruba o turno
         return {"erro": f"Falha ao agendar lembrete: {exc}"}
     return {"status": "ok"}
@@ -1195,11 +1223,14 @@ async def listar_alertas(jid: str) -> dict:
     if erro:
         return {"erro": erro}
     try:
-        bruto = await chamar_mcp_texto("listar_agendamentos", {
-            "jid": jid,
-            "solicitante": solicitante,
-            "eh_admin": eh_admin,
-        })
+        bruto = await chamar_mcp_texto(
+            "listar_agendamentos",
+            {
+                "jid": jid,
+                "solicitante": solicitante,
+                "eh_admin": eh_admin,
+            },
+        )
         alertas = json.loads(bruto) if bruto else []
     except Exception as exc:  # noqa: BLE001
         return {"erro": f"Falha ao listar lembretes: {exc}"}
@@ -1221,12 +1252,15 @@ async def cancelar_alerta(jid: str, id: int) -> dict:
     if erro:
         return {"erro": erro}
     try:
-        await chamar_mcp("cancelar_agendamento", {
-            "jid": jid,
-            "id": id,
-            "solicitante": solicitante,
-            "eh_admin": eh_admin,
-        })
+        await chamar_mcp(
+            "cancelar_agendamento",
+            {
+                "jid": jid,
+                "id": id,
+                "solicitante": solicitante,
+                "eh_admin": eh_admin,
+            },
+        )
     except Exception as exc:  # noqa: BLE001
         return {"erro": f"Falha ao cancelar lembrete: {exc}"}
     return {"status": "ok"}
@@ -1311,6 +1345,4 @@ async def inspecionar_logs(
     _proprio, eh_admin, _reg = request_context.atual()
     if not eh_admin:
         return {"erro": "Só o admin pode inspecionar os logs."}
-    return log_buffer.recuperar(
-        nivel=nivel, comp=(comp or None), limite=limite, resumo=resumo
-    )
+    return log_buffer.recuperar(nivel=nivel, comp=(comp or None), limite=limite, resumo=resumo)

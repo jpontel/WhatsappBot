@@ -9,11 +9,13 @@ Projeto Python que hospeda um agente Google ADK por trás de uma API FastAPI. Id
 ```bash
 poetry install                                           # 1ª vez (resolve deps, cria .venv)
 poetry run uvicorn main:app --app-dir src --reload --port 8000  # rodar em dev
-poetry run pytest                                        # testes (quando existirem)
-poetry run ruff check src tests                          # lint
+poetry run pytest                                        # testes
+poetry run ruff check .                                  # lint
+poetry run ruff format --check .                         # formatação (dry-run)
+poetry run ruff format .                                 # formatação (aplica)
 ```
 
-Não há etapa de build — `uvicorn` carrega o módulo direto.
+Não há etapa de build — `uvicorn` carrega o módulo direto. Lint (ruff check) e testes (pytest) rodam em CI (`.github/workflows/ci-agente.yml`, na raiz do monorepo).
 
 ## Layout do código (`src/`)
 

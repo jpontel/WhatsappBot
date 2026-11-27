@@ -75,7 +75,7 @@ _SCHEMA = {
 
 
 def _formatar_contexto(contexto: list[MensagemContexto]) -> str:
-    recentes = contexto[-settings.classificador_contexto_max:]
+    recentes = contexto[-settings.classificador_contexto_max :]
     if not recentes:
         return ""
     linhas = "\n".join(f"{m.autor or '?'}: {m.texto}" for m in recentes)

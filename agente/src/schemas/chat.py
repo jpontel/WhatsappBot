@@ -22,6 +22,7 @@ class Remetente(BaseModel):
 
 class Citacao(BaseModel):
     """Mensagem que o usuário respondeu/citou ao mandar o /p."""
+
     texto: str | None = None
     autor: str | None = None
 
@@ -33,6 +34,7 @@ class MensagemContexto(BaseModel):
     texto. `texto` pode ser um marcador de mídia ("[imagem]", "[áudio] legenda")
     que o bot já capa do lado dele.
     """
+
     autor: str | None = None
     texto: str
 

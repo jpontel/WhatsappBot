@@ -22,6 +22,7 @@ def como():
     teardown: cada teste async roda no seu próprio contexto (a Task copia o
     contexto na criação), então as mudanças não vazam entre testes.
     """
+
     def _definir(numero, eh_admin=False, registrado=True):
         request_context.definir(numero, eh_admin, registrado)
 
@@ -39,6 +40,7 @@ def _patch_chamar_mcp(monkeypatch):
 
 
 # --- agendar_alerta ----------------------------------------------------------
+
 
 async def test_agendar_recorrente_monta_args(monkeypatch, como):
     como("5547999")
@@ -80,8 +82,11 @@ async def test_agendar_urgente_passa_flag_e_solicitante(monkeypatch, como):
     chamadas = _patch_chamar_mcp(monkeypatch)
 
     res = await tools.agendar_alerta(
-        "5547@s.whatsapp.net", "⏰ remédio", "once",
-        run_at="2026-06-04T14:00:00-03:00", urgente=True,
+        "5547@s.whatsapp.net",
+        "⏰ remédio",
+        "once",
+        run_at="2026-06-04T14:00:00-03:00",
+        urgente=True,
     )
 
     assert res == {"status": "ok"}
@@ -111,7 +116,9 @@ async def test_agendar_erro_vira_dict(monkeypatch, como):
 
     monkeypatch.setattr(tools, "chamar_mcp", fake)
 
-    res = await tools.agendar_alerta("x@s.whatsapp.net", "msg", "once", run_at="2026-06-04T14:00:00-03:00")
+    res = await tools.agendar_alerta(
+        "x@s.whatsapp.net", "msg", "once", run_at="2026-06-04T14:00:00-03:00"
+    )
 
     assert "erro" in res
     assert "mcp caiu" in res["erro"]
@@ -119,9 +126,18 @@ async def test_agendar_erro_vira_dict(monkeypatch, como):
 
 # --- listar_alertas ----------------------------------------------------------
 
+
 async def test_listar_parseia_json_nao_admin(monkeypatch, como):
     como("5547999", eh_admin=False)
-    lista = [{"id": 1, "mensagem": "água", "tipo": "recorrente", "cron_expression": "0 8 * * *", "run_at": None}]
+    lista = [
+        {
+            "id": 1,
+            "mensagem": "água",
+            "tipo": "recorrente",
+            "cron_expression": "0 8 * * *",
+            "run_at": None,
+        }
+    ]
 
     async def fake_texto(tool, args):
         assert tool == "listar_agendamentos"
@@ -166,6 +182,7 @@ async def test_listar_erro_vira_dict(monkeypatch, como):
 
 # --- cancelar_alerta ---------------------------------------------------------
 
+
 async def test_cancelar_monta_args(monkeypatch, como):
     como("5547999", eh_admin=False)
     chamadas = _patch_chamar_mcp(monkeypatch)
@@ -194,6 +211,7 @@ async def test_cancelar_nao_cadastrado_recusa(monkeypatch, como):
 
 
 # --- editar_alerta -----------------------------------------------------------
+
 
 async def test_editar_so_manda_campos_alterados(monkeypatch, como):
     como("5547999", eh_admin=False)
@@ -248,6 +266,7 @@ async def test_editar_nao_cadastrado_recusa(monkeypatch, como):
 
 
 # --- buscar_contato ----------------------------------------------------------
+
 
 async def test_buscar_contato_encontra(monkeypatch):
     async def fake_texto(tool, args):

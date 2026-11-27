@@ -24,7 +24,9 @@ def _instrumentar(monkeypatch):
 
     async def fake_run(*, user_id, session_id, new_message):
         estado["ativos"][session_id] = estado["ativos"].get(session_id, 0) + 1
-        estado["pico"][session_id] = max(estado["pico"].get(session_id, 0), estado["ativos"][session_id])
+        estado["pico"][session_id] = max(
+            estado["pico"].get(session_id, 0), estado["ativos"][session_id]
+        )
         estado["ativos_global"] += 1
         estado["pico_global"] = max(estado["pico_global"], estado["ativos_global"])
         try:

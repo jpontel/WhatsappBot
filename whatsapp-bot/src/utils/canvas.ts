@@ -3,14 +3,13 @@ import type { CanvasRenderingContext2D } from 'canvas';
 
 export class Canvas {
     async criarCanvas(itens: any) {
-        const CELL = 150;           // px por célula
-        const GRID = 5;             // 5x5
-        const SIZE = CELL * GRID;   // 750x750 total
+        const CELL = 150; // px por célula
+        const GRID = 5; // 5x5
+        const SIZE = CELL * GRID; // 750x750 total
 
         // Completa até 25 células com tiles VAZIOS (sem nome) — antes empurrava o
         // placeholder-estrela do Last.fm, que ficava feio. Agora vira tile liso.
-        while(itens.length < 25)
-            itens.push({ imageUrl: null, name: '', artist: '' });
+        while (itens.length < 25) itens.push({ imageUrl: null, name: '', artist: '' });
 
         const canvas = createCanvas(SIZE, SIZE);
         const context = canvas.getContext('2d');
@@ -18,7 +17,7 @@ export class Canvas {
         context.fillStyle = '#111111';
         context.fillRect(0, 0, SIZE, SIZE);
 
-        const promises = itens.slice(0, 25).map(async(item: any, i: number) => {
+        const promises = itens.slice(0, 25).map(async (item: any, i: number) => {
             const col = i % GRID;
             const row = Math.floor(i / GRID);
 

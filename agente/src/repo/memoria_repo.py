@@ -104,7 +104,9 @@ def _salvar_sync(numero: str, categoria: str, conteudo: str, embedding: list[flo
         )
 
         # Teto por pessoa: poda as mais antigas (menor rowid) além do limite.
-        total = conn.execute("SELECT count(*) FROM memorias WHERE numero = ?", [numero]).fetchone()[0]
+        total = conn.execute("SELECT count(*) FROM memorias WHERE numero = ?", [numero]).fetchone()[
+            0
+        ]
         excesso = total - settings.memoria_max_por_pessoa
         if excesso > 0:
             antigas = conn.execute(
@@ -157,7 +159,9 @@ def _contar_sync(numero: str) -> int:
     numero = _norm(numero)
     with _lock:
         conn = _conexao()
-        return conn.execute("SELECT count(*) FROM memorias WHERE numero = ?", [numero]).fetchone()[0]
+        return conn.execute("SELECT count(*) FROM memorias WHERE numero = ?", [numero]).fetchone()[
+            0
+        ]
 
 
 # --- wrappers async (não bloqueiam o event loop) ----------------------------

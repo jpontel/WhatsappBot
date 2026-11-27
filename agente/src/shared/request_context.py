@@ -78,9 +78,7 @@ _tools_permitidas: ContextVar[frozenset[str] | None] = ContextVar(
 # acréscimo FIXO por-turno (não cresce com a conversa): a orientação específica
 # da rota + fragmentos condicionais. Lido pelo before_model_callback que reescreve
 # o system_instruction. "" = nada a injetar. Ver client/roteador.py.
-_instrucao_suplementar: ContextVar[str] = ContextVar(
-    "turno_instrucao_suplementar", default=""
-)
+_instrucao_suplementar: ContextVar[str] = ContextVar("turno_instrucao_suplementar", default="")
 # True quando o turno deve FORÇAR a chamada de `salvar_memoria` (tool_config
 # ANY) na 1ª chamada ao modelo — ver `roteador.deve_forcar_salvamento` e o
 # callback `roteador.forcar_salvamento`.

@@ -9,7 +9,9 @@ from schemas.chat import ChatRequest, MsgKey
 
 
 def _req() -> ChatRequest:
-    return ChatRequest(chatId="grupo@g.us", mensagem="oi", msgKey=MsgKey(id="1", remoteJid="grupo@g.us"))
+    return ChatRequest(
+        chatId="grupo@g.us", mensagem="oi", msgKey=MsgKey(id="1", remoteJid="grupo@g.us")
+    )
 
 
 def _texto_contexto() -> str:
@@ -31,5 +33,8 @@ def test_girias_permitidas_e_subconjunto_valido():
 
 
 def test_girias_permitidas_varia_entre_turnos():
-    amostras = {tuple(sorted(_texto_contexto().split("girias_permitidas: ")[1].split("\n")[0].split(", "))) for _ in range(30)}
+    amostras = {
+        tuple(sorted(_texto_contexto().split("girias_permitidas: ")[1].split("\n")[0].split(", ")))
+        for _ in range(30)
+    }
     assert len(amostras) > 1

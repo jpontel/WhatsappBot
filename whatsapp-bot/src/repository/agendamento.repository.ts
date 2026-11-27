@@ -12,14 +12,14 @@ export type StatusAgendamento =
 
 export interface Agendamento {
     id: number;
-    chat_id: string;        // JID do chat de origem (= destino do envio)
-    contact_id: string;     // quem pediu (remetente); usado p/ confirmar urgente em grupo
+    chat_id: string; // JID do chat de origem (= destino do envio)
+    contact_id: string; // quem pediu (remetente); usado p/ confirmar urgente em grupo
     mensagem: string;
     tipo: TipoAgendamento;
     cron_expression: string | null;
-    run_at: string | null;  // ISO 8601 com offset
+    run_at: string | null; // ISO 8601 com offset
     timezone: string;
-    urgente: number;        // 0 | 1
+    urgente: number; // 0 | 1
     nag_count: number;
     status: StatusAgendamento;
     created_at: string;
@@ -58,7 +58,6 @@ export function mesmoSolicitante(ag: Agendamento, solicitante: string | null | u
 }
 
 class AgendamentoRepository {
-
     criar(dados: NovoAgendamento): number {
         // urgência só faz sentido para 'once' (recorrente já repete por natureza).
         const urgente = dados.tipo === 'once' && dados.urgente ? 1 : 0;
@@ -82,7 +81,9 @@ class AgendamentoRepository {
 
     /** Agendamentos "vivos" (pendentes ou em nag) — usado no boot para re-registrar. */
     listarAtivos(): Agendamento[] {
-        return db.prepare(`SELECT * FROM agendamento WHERE status IN ${STATUS_ATIVOS}`).all() as Agendamento[];
+        return db
+            .prepare(`SELECT * FROM agendamento WHERE status IN ${STATUS_ATIVOS}`)
+            .all() as Agendamento[];
     }
 
     /**
@@ -93,23 +94,30 @@ class AgendamentoRepository {
     listarPorChat(chatId: string, filtroContato?: string): Agendamento[] {
         if (filtroContato) {
             return db
-                .prepare(`SELECT * FROM agendamento WHERE chat_id = ? AND contact_id = ? AND status IN ${STATUS_ATIVOS} ORDER BY id`)
+                .prepare(
+                    `SELECT * FROM agendamento WHERE chat_id = ? AND contact_id = ? AND status IN ${STATUS_ATIVOS} ORDER BY id`,
+                )
                 .all(chatId, filtroContato) as Agendamento[];
         }
         return db
-            .prepare(`SELECT * FROM agendamento WHERE chat_id = ? AND status IN ${STATUS_ATIVOS} ORDER BY id`)
+            .prepare(
+                `SELECT * FROM agendamento WHERE chat_id = ? AND status IN ${STATUS_ATIVOS} ORDER BY id`,
+            )
             .all(chatId) as Agendamento[];
     }
 
     /** Urgentes em nag (aguardando confirmação) de um chat — usado para detectar resposta. */
     listarAguardandoConfirmacao(chatId: string): Agendamento[] {
         return db
-            .prepare("SELECT * FROM agendamento WHERE chat_id = ? AND status = 'aguardando_confirmacao'")
+            .prepare(
+                "SELECT * FROM agendamento WHERE chat_id = ? AND status = 'aguardando_confirmacao'",
+            )
             .all(chatId) as Agendamento[];
     }
 
     buscarPorId(id: number): Agendamento | undefined {
-        return db.prepare('SELECT * FROM agendamento WHERE id = ?').get(id) as Agendamento | undefined;
+        return db.prepare('SELECT * FROM agendamento WHERE id = ?').get(id) as
+            Agendamento | undefined;
     }
 
     marcarEnviado(id: number): void {
@@ -152,7 +160,9 @@ class AgendamentoRepository {
         if (sets.length === 0) return this.buscarPorId(id);
         valores.push(id);
         const info = db
-            .prepare(`UPDATE agendamento SET ${sets.join(', ')} WHERE id = ? AND status = 'pendente'`)
+            .prepare(
+                `UPDATE agendamento SET ${sets.join(', ')} WHERE id = ? AND status = 'pendente'`,
+            )
             .run(...valores);
         if (info.changes === 0) return undefined;
         return this.buscarPorId(id);
@@ -167,7 +177,9 @@ class AgendamentoRepository {
     /** Incrementa o contador de reenvios e devolve o novo valor. */
     incrementarNag(id: number): number {
         db.prepare('UPDATE agendamento SET nag_count = nag_count + 1 WHERE id = ?').run(id);
-        const row = db.prepare('SELECT nag_count FROM agendamento WHERE id = ?').get(id) as { nag_count: number };
+        const row = db.prepare('SELECT nag_count FROM agendamento WHERE id = ?').get(id) as {
+            nag_count: number;
+        };
         return row.nag_count;
     }
 

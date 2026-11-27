@@ -36,7 +36,15 @@ function mockSock() {
     return { sendMessage: vi.fn().mockResolvedValue(undefined) } as any;
 }
 
-function dto(opts: { sock?: any; conteudo?: string; id?: string; remoteJid?: string; participant?: string } = {}) {
+function dto(
+    opts: {
+        sock?: any;
+        conteudo?: string;
+        id?: string;
+        remoteJid?: string;
+        participant?: string;
+    } = {},
+) {
     const remoteJid = opts.remoteJid ?? '5511@s.whatsapp.net';
     const key: any = { id: opts.id ?? 'm1', remoteJid, fromMe: false };
     if (opts.participant) key.participant = opts.participant;
@@ -75,15 +83,21 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         await dispararLote();
 
         expect(axios.post).not.toHaveBeenCalled();
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '❌', key: d.msg.key } });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "Precisa mandar uma pergunta!!! 🤨" });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            react: { text: '❌', key: d.msg.key },
+        });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            text: 'Precisa mandar uma pergunta!!! 🤨',
+        });
     });
 
     it('1 mensagem: reage ⏳, POSTa após a janela, envia texto e reage 💅', async () => {
         const d = dto({ conteudo: 'capital da australia' });
 
         await perguntar.execute(d);
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '⏳', key: d.msg.key } });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            react: { text: '⏳', key: d.msg.key },
+        });
         expect(axios.post).not.toHaveBeenCalled(); // ainda dentro da janela
 
         await dispararLote();
@@ -95,10 +109,21 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
             chatId: d.usuarioJid,
             mensagem: 'capital da australia',
             midia: null,
-            remetente: { numero: '5511@s.whatsapp.net', nome: null, registrado: false, ehAdmin: false },
+            remetente: {
+                numero: '5511@s.whatsapp.net',
+                nome: null,
+                registrado: false,
+                ehAdmin: false,
+            },
         });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: 'ok' }, { quoted: d.msg });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '💅', key: d.msg.key } });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(
+            d.usuarioJid,
+            { text: 'ok' },
+            { quoted: d.msg },
+        );
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            react: { text: '💅', key: d.msg.key },
+        });
     });
 
     it('coalesce: 3 /p do mesmo remetente na janela viram 1 POST com lote e 💅 em todos', async () => {
@@ -120,17 +145,28 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         expect(payload.mensagem).toContain('3. tres');
 
         for (const id of ['a', 'b', 'c']) {
-            expect(sock.sendMessage).toHaveBeenCalledWith(
-                d1.usuarioJid,
-                { react: { text: '💅', key: expect.objectContaining({ id }) } },
-            );
+            expect(sock.sendMessage).toHaveBeenCalledWith(d1.usuarioJid, {
+                react: { text: '💅', key: expect.objectContaining({ id }) },
+            });
         }
     });
 
     it('remetentes diferentes no mesmo grupo geram lotes (POSTs) separados', async () => {
         const sock = mockSock();
-        const a = dto({ sock, conteudo: 'do ana', id: 'a', remoteJid: 'grupo@g.us', participant: '5511@s.whatsapp.net' });
-        const b = dto({ sock, conteudo: 'do bia', id: 'b', remoteJid: 'grupo@g.us', participant: '5522@s.whatsapp.net' });
+        const a = dto({
+            sock,
+            conteudo: 'do ana',
+            id: 'a',
+            remoteJid: 'grupo@g.us',
+            participant: '5511@s.whatsapp.net',
+        });
+        const b = dto({
+            sock,
+            conteudo: 'do bia',
+            id: 'b',
+            remoteJid: 'grupo@g.us',
+            participant: '5522@s.whatsapp.net',
+        });
 
         await perguntar.execute(a);
         await perguntar.execute(b);
@@ -143,15 +179,21 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
     });
 
     it('texto null no response: não envia texto, só reage 💅', async () => {
-        (axios.post as any).mockResolvedValue({ data: { texto: null, tools_acionadas: ['enviar_sticker_buscado'] } });
+        (axios.post as any).mockResolvedValue({
+            data: { texto: null, tools_acionadas: ['enviar_sticker_buscado'] },
+        });
         const d = dto({ conteudo: 'manda figurinha' });
 
         await perguntar.execute(d);
         await dispararLote();
 
-        const enviosTexto = (d.sock.sendMessage as any).mock.calls.filter(([, p]: any[]) => 'text' in p);
+        const enviosTexto = (d.sock.sendMessage as any).mock.calls.filter(
+            ([, p]: any[]) => 'text' in p,
+        );
         expect(enviosTexto).toHaveLength(0);
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '💅', key: d.msg.key } });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            react: { text: '💅', key: d.msg.key },
+        });
     });
 
     it('envia mídia citada como base64 no payload', async () => {
@@ -184,8 +226,14 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         await perguntar.execute(d);
         await dispararLote();
 
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '❌', key: d.msg.key } });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "❌ Agente fora do ar, tenta de novo daqui a pouco 🥲" }, { quoted: d.msg });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            react: { text: '❌', key: d.msg.key },
+        });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(
+            d.usuarioJid,
+            { text: '❌ Agente fora do ar, tenta de novo daqui a pouco 🥲' },
+            { quoted: d.msg },
+        );
     });
 
     it('erro genérico: reage ❌ e envia mensagem padrão', async () => {
@@ -196,7 +244,13 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         await perguntar.execute(d);
         await dispararLote();
 
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { react: { text: '❌', key: d.msg.key } });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, { text: "❌ Ixe, deu ruim na IA :p" }, { quoted: d.msg });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+            react: { text: '❌', key: d.msg.key },
+        });
+        expect(d.sock.sendMessage).toHaveBeenCalledWith(
+            d.usuarioJid,
+            { text: '❌ Ixe, deu ruim na IA :p' },
+            { quoted: d.msg },
+        );
     });
 });

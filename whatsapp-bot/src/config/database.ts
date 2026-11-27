@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const dataDir = path.join(__dirname, '../../data');
 fs.mkdirSync(dataDir, { recursive: true });
 
-const db: Database = new DatabaseConstructor(path.join(dataDir, 'whatsapp-bot.db'))
+const db: Database = new DatabaseConstructor(path.join(dataDir, 'whatsapp-bot.db'));
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS mensagens (
@@ -67,7 +67,7 @@ db.exec(`
 // antigo (sem tipo/run_at/timezone). O CREATE TABLE IF NOT EXISTS acima não altera
 // tabelas existentes, então adicionamos as colunas que faltarem aqui.
 const colunasAgendamento = new Set(
-    (db.prepare("PRAGMA table_info(agendamento)").all() as { name: string }[]).map((c) => c.name),
+    (db.prepare('PRAGMA table_info(agendamento)').all() as { name: string }[]).map((c) => c.name),
 );
 const adicionarColuna = (nome: string, ddl: string): void => {
     if (!colunasAgendamento.has(nome)) {

@@ -5,7 +5,7 @@ import makeWASocket, {
     DisconnectReason,
     Browsers,
     fetchLatestBaileysVersion,
-    type WASocket
+    type WASocket,
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
@@ -55,7 +55,7 @@ async function main() {
         printQRInTerminal: false,
         browser: Browsers.macOS('Chrome'),
         markOnlineOnConnect: true,
-        cachedGroupMetadata: async (jid) => cache.get(jid)
+        cachedGroupMetadata: async (jid) => cache.get(jid),
     });
 
     socketAtivo = sock;
@@ -66,29 +66,23 @@ async function main() {
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
-        const telefone = process.env.TELEFONE_CELULAR ?? "";
+        const telefone = process.env.TELEFONE_CELULAR ?? '';
 
         if (connection === 'close') {
             const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
-            
+
             const delay = statusCode === 405 ? 15000 : 5000;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-            
-            if(statusCode === DisconnectReason.restartRequired) {
-                
+
+            if (statusCode === DisconnectReason.restartRequired) {
                 console.log('Tudo certo✅ Reiniciando conexão...');
-                
             } else {
-                console.log(`⚠️ Conexão fechada (${statusCode}). Tentando em ${delay/1000}s...`);
+                console.log(`⚠️ Conexão fechada (${statusCode}). Tentando em ${delay / 1000}s...`);
             }
-            
-            if(shouldReconnect) 
-                setTimeout(() => main(), delay); 
 
+            if (shouldReconnect) setTimeout(() => main(), delay);
         } else if (connection === 'connecting') {
-
             console.log('⏳ Estabelecendo túnel de conexão...');
-
         } else if (connection === 'open') {
             console.log('✅ Bot conectado e pronto!');
 
@@ -102,11 +96,11 @@ async function main() {
             }
         }
 
-        if(qr && !sock.authState.creds.me && !codigoEnviado) {
-            codigoEnviado = true; 
-            
+        if (qr && !sock.authState.creds.me && !codigoEnviado) {
+            codigoEnviado = true;
+
             console.log('🚀 Servidor pronto! Solicitando código de pareamento...');
-            
+
             setTimeout(async () => {
                 try {
                     const code = await sock.requestPairingCode(telefone);
@@ -115,18 +109,18 @@ async function main() {
                     console.log(`👉  ${code}  👈`);
                     console.log('=============================================');
                 } catch (err) {
-                    console.error("❌ Falha ao gerar código:", err);
-                    codigoEnviado = false; 
+                    console.error('❌ Falha ao gerar código:', err);
+                    codigoEnviado = false;
                 }
             }, 10000);
         }
     });
 
-    sock.ev.on('messages.upsert', async(messageDto) => {
+    sock.ev.on('messages.upsert', async (messageDto) => {
         try {
             await enviarMensagem(sock, messageDto);
         } catch (error) {
-            console.error("Erro no dispatcher:", error);
+            console.error('Erro no dispatcher:', error);
         }
     });
 }
@@ -149,7 +143,7 @@ schedulerService.inicializar();
 // (logout remove o device no servidor do WhatsApp e apagaria a sessão).
 registrarDesligamentoGracioso({
     obterSocket: () => socketAtivo,
-    obterSalvarCredenciais: () => salvarCredenciais
+    obterSalvarCredenciais: () => salvarCredenciais,
 });
 
 main();

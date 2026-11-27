@@ -1,7 +1,6 @@
-const { default: axios } = require("axios");
+const { default: axios } = require('axios');
 
 class CraftService {
-
     constructor() {}
 
     async listarDiretorios() {
@@ -10,41 +9,33 @@ class CraftService {
 
             return diretoriosListados.data;
         } catch (error) {
-            throw new Error("Erro ao listar o documento!");
+            throw new Error('Erro ao listar o documento!');
         }
     }
 
-    async listarDocumentos(diretorio) {
-        
+    async listarDocumentos(diretorio: string) {
         try {
             const documentosListados = await axios.get(`${process.env.CRAFT_API_URL}documents`);
 
             return documentosListados.data;
         } catch (error) {
-            throw new Error("Erro ao listar o documento!");
+            throw new Error('Erro ao listar o documento!');
         }
-
     }
 
     async buscarDocumentos() {
-
         try {
             const documentos = await axios.get(`${process.env.CRAFT_API_URL}documents/search`);
 
             return documentos.data;
         } catch (error) {
-            throw new Error("Erro ao buscar o documento!");
+            throw new Error('Erro ao buscar o documento!');
         }
-
     }
 
-    async recuperarTasks() {
+    async recuperarTasks() {}
 
-    }
-
-    async criarDocumento() {
-
-    }
+    async criarDocumento() {}
 }
 
 module.exports = new CraftService();

@@ -41,11 +41,12 @@ function autorDe(msg: WAMessage): string {
 // Texto "cru" da mensagem p/ mandar como `conteudo` do /p (ou '' se for mídia
 // sozinha — o agente responde com base na mídia + contexto, igual ao @menção).
 function textoDaMensagem(msg: WAMessage): string {
-    const t = msg.message?.conversation
-        || msg.message?.extendedTextMessage?.text
-        || msg.message?.imageMessage?.caption
-        || msg.message?.videoMessage?.caption
-        || '';
+    const t =
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        msg.message?.videoMessage?.caption ||
+        '';
     return t.replace(/\s+/g, ' ').trim();
 }
 
@@ -82,12 +83,23 @@ function cancelar(jid: string, logar: boolean): void {
 
 // Arma o timer em memória. A persistência (salvarPendente) é feita por quem chama
 // (só no agendamento vivo, não no re-arme do boot, que já tem a linha no banco).
-function armar(jid: string, msgId: string, dto: DtoSemSock, delayMs: number, restored: boolean): void {
+function armar(
+    jid: string,
+    msgId: string,
+    dto: DtoSemSock,
+    delayMs: number,
+    restored: boolean,
+): void {
     const timer = setTimeout(() => void disparar(jid, msgId, dto, restored), delayMs);
     timers.set(jid, { timer, msgId });
 }
 
-async function disparar(jid: string, msgId: string, dto: DtoSemSock, restored: boolean): Promise<void> {
+async function disparar(
+    jid: string,
+    msgId: string,
+    dto: DtoSemSock,
+    restored: boolean,
+): Promise<void> {
     timers.delete(jid);
     removerPendente(jid);
 
@@ -138,7 +150,9 @@ export async function observar(
     if (!estaHabilitado(jid)) return;
     if (textoParaContexto(msg.message) == null) return;
     if (naoPedeResposta(msg)) {
-        console.log(`[anti-vácuo] ignorado no grupo ${jid} (ruído: risada/emoji/figurinha — não arma timer)`);
+        console.log(
+            `[anti-vácuo] ignorado no grupo ${jid} (ruído: risada/emoji/figurinha — não arma timer)`,
+        );
         return;
     }
 
@@ -199,7 +213,9 @@ export function inicializar(): void {
         // Se já venceu mas dentro da graça, dispara logo — com ~10s p/ o socket subir.
         const delay = Math.max(fireAtMs - agora, 10_000);
         armar(p.grupo_jid, p.msg_id, dto, delay, true);
-        console.log(`[anti-vácuo] pendência re-armada (grupo ${p.grupo_jid}) — dispara em ${Math.round(delay / 1000)}s`);
+        console.log(
+            `[anti-vácuo] pendência re-armada (grupo ${p.grupo_jid}) — dispara em ${Math.round(delay / 1000)}s`,
+        );
     }
 }
 

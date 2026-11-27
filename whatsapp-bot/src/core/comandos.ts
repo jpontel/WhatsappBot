@@ -9,16 +9,18 @@ export default async function carregarComandos(dir?: string) {
     const comandos = new Map();
 
     const comandosArquivos = dir ?? path.join(__dirname, '../commands');
-    const comandosLista = fs.readdirSync(comandosArquivos).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+    const comandosLista = fs
+        .readdirSync(comandosArquivos)
+        .filter((file) => file.endsWith('.js') || file.endsWith('.ts'));
 
-    for(const arquivo of comandosLista) {
+    for (const arquivo of comandosLista) {
         const arquivoCaminho = path.join(comandosArquivos, arquivo);
         const urlArquivo = pathToFileURL(arquivoCaminho).href;
 
         const modulo = await import(urlArquivo);
         const comandoCarregado = modulo.default || modulo;
 
-        if(comandoCarregado.name && comandoCarregado.execute) {
+        if (comandoCarregado.name && comandoCarregado.execute) {
             comandos.set(comandoCarregado.name, comandoCarregado);
         }
     }

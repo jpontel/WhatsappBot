@@ -1,4 +1,4 @@
-import type { WASocket } from "@whiskeysockets/baileys";
+import type { WASocket } from '@whiskeysockets/baileys';
 
 export class WhatsappService {
     private sock: WASocket | null = null;
@@ -8,7 +8,7 @@ export class WhatsappService {
     }
 
     recuperarInstancia(): WASocket {
-        if (!this.sock) throw new Error("Whatsapp Socket não inicializado!");
+        if (!this.sock) throw new Error('Whatsapp Socket não inicializado!');
         return this.sock;
     }
 }

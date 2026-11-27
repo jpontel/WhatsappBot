@@ -36,9 +36,7 @@ async def _listar_pessoas() -> list[dict]:
     return pessoas
 
 
-async def pessoas_mencionadas(
-    mensagem: str, excluir_numero: str | None
-) -> list[dict]:
+async def pessoas_mencionadas(mensagem: str, excluir_numero: str | None) -> list[dict]:
     """Pessoas cadastradas mencionadas PELO NOME no texto (dedup por numero).
 
     Casa qualquer token do nome (≥3 letras, para evitar falso-positivo com

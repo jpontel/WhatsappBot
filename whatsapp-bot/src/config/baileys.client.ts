@@ -7,7 +7,7 @@ export class BaileysClient {
     authState: any;
     pairRequested: boolean;
     connected: boolean;
-    
+
     constructor() {
         this.sock;
         this.authState;
@@ -24,7 +24,7 @@ export class BaileysClient {
         this.sock = makeWASocket({
             auth: state,
             printQRInTerminal: false,
-            logger: logger 
+            logger: logger,
         });
 
         this.sock.ev.on('creds.update', saveCreds);
@@ -33,13 +33,12 @@ export class BaileysClient {
             const { connection, lastDisconnect, qr } = update;
 
             if (
-                !state.creds.registered 
-                && !this.pairRequested 
-                && (connection === 'connecting' || !!qr)
+                !state.creds.registered &&
+                !this.pairRequested &&
+                (connection === 'connecting' || !!qr)
             ) {
-
                 this.pairRequested = true;
-                const number = '550000000002'; 
+                const number = '550000000002';
 
                 try {
                     const code = await this.sock.requestPairingCode(number);
@@ -48,32 +47,30 @@ export class BaileysClient {
                     console.log('📱 CÓDIGO DE CONEXÃO DO WHATSAPP:');
                     console.log(`👉  ${code}  👈`);
                     console.log('=============================================');
-                    
                 } catch (err) {
                     this.pairRequested = false;
                     console.error('Erro no pairing code:', err);
                 }
             }
 
-             if(connection === 'open') {
+            if (connection === 'open') {
                 this.connected = true;
                 console.log('✅ WhatsApp conectado!');
 
                 // this.sock.ev.on('messages.upsert', handler);
             }
 
-            if(connection === 'close') {
-                const statusCode = (lastDisconnect?.error instanceof Boom)
-                    ? lastDisconnect.error.output.statusCode
-                    : null;
+            if (connection === 'close') {
+                const statusCode =
+                    lastDisconnect?.error instanceof Boom
+                        ? lastDisconnect.error.output.statusCode
+                        : null;
 
                 console.log('Conexão fechada:', lastDisconnect?.error, ', statusCode:', statusCode);
 
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-                if (shouldReconnect)
-                    await this.reconectar();
-
+                if (shouldReconnect) await this.reconectar();
             }
         });
     }
@@ -88,5 +85,4 @@ export class BaileysClient {
     //     console.log(`Desceu algo aqui: ${handler}`);
     //     // this.sock.ev.on('messages.upsert', handler);
     // }
-
 }

@@ -1,4 +1,4 @@
-import type { ComandoExecutarDto } from "../dto/comandos.dto.js";
+import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { Sticker, StickerTypes } from 'wa-sticker-formatter';
 import pino from 'pino';
@@ -10,14 +10,15 @@ const TIPOS_CORTE: Record<string, StickerTypes> = {
     cropped: StickerTypes.CROPPED,
     full: StickerTypes.FULL,
     circle: StickerTypes.CIRCLE,
-    rounded: StickerTypes.ROUNDED
+    rounded: StickerTypes.ROUNDED,
 };
 
 export default {
     name: '/sticker',
-    description: 'Cria stickers para o whatsapp a partir de uma imagem. Corte opcional: /sticker <default|cropped|full|circle|rounded> (default: default).',
+    description:
+        'Cria stickers para o whatsapp a partir de uma imagem. Corte opcional: /sticker <default|cropped|full|circle|rounded> (default: default).',
 
-    execute: async(comandoExecutarDto: ComandoExecutarDto) => {
+    execute: async (comandoExecutarDto: ComandoExecutarDto) => {
         const { sock, msg, usuarioJid, conteudo } = comandoExecutarDto;
 
         // Primeiro token após o comando define o tipo de corte (opcional).
@@ -27,56 +28,50 @@ export default {
         const mensagemRespondida = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         const mensagemMidia = mensagemRespondida ? mensagemRespondida : msg.message;
 
-        if (
-            !mensagemMidia?.imageMessage 
-            && !mensagemMidia?.videoMessage
-        ) {
-
-            return await sock.sendMessage(usuarioJid, { 
-                text: "Precisa de uma imagem ><",
-                react: { text: '❌', key: msg.key } 
+        if (!mensagemMidia?.imageMessage && !mensagemMidia?.videoMessage) {
+            return await sock.sendMessage(usuarioJid, {
+                text: 'Precisa de uma imagem ><',
+                react: { text: '❌', key: msg.key },
             });
-
         }
 
         try {
             await sock.sendMessage(usuarioJid, {
-                react: { text: '⏳', key: msg.key }
+                react: { text: '⏳', key: msg.key },
             });
 
             const buffer = await downloadMediaMessage(
                 {
                     message: mensagemMidia,
-                    key: msg.key
+                    key: msg.key,
                 },
                 'buffer',
                 {},
                 {
                     reuploadRequest: sock.updateMediaMessage,
-                    logger: pino({ level: 'error' })
-                }
+                    logger: pino({ level: 'error' }),
+                },
             );
 
             const sticker = new Sticker(buffer as Buffer, {
                 pack: 'bot do guigo',
                 author: 'guig0',
                 type: tipoCorte,
-                quality: 30
+                quality: 30,
             });
 
             const stickerBuffer = await sticker.toBuffer();
 
-            await sock.sendMessage(usuarioJid, { 
-                react: { text: '✅', key: msg.key } 
+            await sock.sendMessage(usuarioJid, {
+                react: { text: '✅', key: msg.key },
             });
 
             await sock.sendMessage(usuarioJid, { sticker: stickerBuffer });
-            
         } catch (error: unknown) {
-            return await sock.sendMessage(usuarioJid, { 
+            return await sock.sendMessage(usuarioJid, {
                 text: `Deu ruim :p [Erro]: ${(error as Error).message}`,
-                react: { text: '❌', key: msg.key }
+                react: { text: '❌', key: msg.key },
             });
         }
-    }
-}
+    },
+};
