@@ -96,6 +96,13 @@ jobs:
             --exclude '*.db-wal' \
             --exclude 'data' \
             --exclude '.env' \
+            --exclude '.claude' \
+            --exclude '.ruff_cache' \
+            --exclude '__pycache__' \
+            --exclude '.pytest_cache' \
+            --exclude '.DS_Store' \
+            --exclude 'todo.md' \
+            --exclude '*.bak-*' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/root/bot/"
 

@@ -144,6 +144,16 @@ Checklist a repetir nos primeiros deploys de teste: confirmar via `docker ps` qu
 4. Abrir um PR de teste e confirmar que `ci-whatsapp-bot.yml`/`ci-agente.yml` aparecem rodando no GitHub Actions (prova de que saíram do limbo em que estavam), que cada um dispara só com mudanças no seu diretório, e que o job `test` do `ci-whatsapp-bot.yml` passa de fato com os módulos nativos compilados (não só `typecheck`/`lint`).
 5. Deploy automático só é ligado após Estágio A do guard-rail (teste manual via SSH) e nasce com Required reviewer ativo (Estágio B) — nunca ativar `deploy.yml` direto em modo 100% automático na primeira vez.
 
+## Estágio A validado (2026-11-27)
+
+Rodado manualmente via SSH na `wpp-bot-secondary`, com o conteúdo da branch `chore/fundacao-engenharia-ci-cd` (PR #7, ainda não mergeado). Achados reais, corrigidos no `deploy.yml` antes de confiar nele:
+- `--delete` apagaria backups manuais do servidor (`todo.md`, `docker-compose.yml.bak-*`) — adicionado exclude.
+- Sem exclude de `.claude/`, `.ruff_cache/`, `__pycache__/`, `.pytest_cache/`, `.DS_Store` — lixo de dev iria pro servidor num rsync rodado de working tree sujo (não afeta o `actions/checkout` limpo do CI, mas é defensivo).
+
+Resultado: rsync + `docker compose up -d --build` rodou limpo, 1 container de cada (`bot-baileys`/`agente-adk`), sessão WhatsApp sobreviveu (sem `conflict: replaced`, sem `401 loggedOut`, sem novo pareamento), `agente-adk` subiu limpo.
+
+**Atenção**: a produção agora está rodando o conteúdo da branch do PR #7, não o `main` — mesmo padrão já visto antes neste projeto (prod à frente do git até o merge). Tracing Langfuse não ativou em produção ainda porque `agente/.env` do servidor não tem `LANGFUSE_PUBLIC_KEY` — adicionar manualmente lá quando quiser ligar.
+
 ## Status da implementação
 
 Fases 0–5 implementadas e commitadas (`6bf8e05`). `deploy.yml` existe mas está **inerte** — não roda nada perigoso até:
