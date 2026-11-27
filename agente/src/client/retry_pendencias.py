@@ -121,7 +121,7 @@ async def _rerodar_llm(p: dict) -> str | None:
         itens_raw = json.loads(p["contexto"] or "[]")
     except (ValueError, TypeError):
         itens_raw = []
-    itens = [MensagemContexto(**d) for d in itens_raw][-settings.pendencia_contexto_max:]
+    itens = [MensagemContexto(**d) for d in itens_raw][-settings.pendencia_contexto_max :]
     tok_ctx = request_context.definir_contexto(itens)
 
     # Rota de fallback: no retry damos TODAS as tools + o manual completo (rota

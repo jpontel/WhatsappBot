@@ -12,7 +12,6 @@ const OUTPUT_DIR = path.resolve(__dirname, '../../temp_audio');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
 export class AudioService {
-
     /**
      * Converte bytes de áudio (ex.: WAV vindo do TTS do Gemini) em OGG/Opus —
      * o formato que o WhatsApp usa para nota de voz (PTT). Grava um arquivo
@@ -31,24 +30,37 @@ export class AudioService {
             // ffmpeg autodetecta o container de entrada (WAV/MP3/etc).
             await execFileAsync('ffmpeg', [
                 '-y',
-                '-i', entrada,
-                '-c:a', 'libopus',
-                '-b:a', '32k',
-                '-ar', '48000',
-                '-ac', '1',
+                '-i',
+                entrada,
+                '-c:a',
+                'libopus',
+                '-b:a',
+                '32k',
+                '-ar',
+                '48000',
+                '-ac',
+                '1',
                 saida,
             ]);
             return saida;
         } catch (error) {
             // limpa a saída parcial se a transcodificação falhou
             if (fs.existsSync(saida)) {
-                try { fs.unlinkSync(saida); } catch { /* ignora limpeza */ }
+                try {
+                    fs.unlinkSync(saida);
+                } catch {
+                    /* ignora limpeza */
+                }
             }
             console.error('Erro ao transcodificar áudio para opus:', error);
             throw new Error('Não consegui converter o áudio para nota de voz.');
         } finally {
             if (fs.existsSync(entrada)) {
-                try { fs.unlinkSync(entrada); } catch { /* ignora limpeza */ }
+                try {
+                    fs.unlinkSync(entrada);
+                } catch {
+                    /* ignora limpeza */
+                }
             }
         }
     }

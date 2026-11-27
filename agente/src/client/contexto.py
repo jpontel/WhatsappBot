@@ -43,7 +43,7 @@ def injetar_contexto(callback_context, llm_request: LlmRequest):  # noqa: ANN001
 
     # Clamp defensivo por quantidade: fica só com as últimas N (mais recentes).
     if len(itens) > settings.contexto_max_itens:
-        itens = itens[-settings.contexto_max_itens:]
+        itens = itens[-settings.contexto_max_itens :]
 
     linhas: list[str] = []
     for msg in itens:
@@ -55,8 +55,7 @@ def injetar_contexto(callback_context, llm_request: LlmRequest):  # noqa: ANN001
         "[contexto-recente]\n"
         "(metadado silencioso: últimas mensagens do chat ANTES de te acionarem — "
         "pano de fundo para entender o pedido; NÃO responda a elas diretamente, "
-        "NÃO as repita)\n"
-        + "\n".join(linhas)
+        "NÃO as repita)\n" + "\n".join(linhas)
     )
 
     content = types.Content(role="user", parts=[types.Part(text=bloco)])

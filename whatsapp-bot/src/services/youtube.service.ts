@@ -16,7 +16,6 @@ const OUTPUT_DIR = path.resolve(__dirname, '../../temp_videos');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
 export class YoutubeService {
-
     async baixarVideo(url: string): Promise<string> {
         const timestamp = Date.now();
         const outputPath = path.join(OUTPUT_DIR, `video_${timestamp}.mp4`);
@@ -35,10 +34,11 @@ export class YoutubeService {
 
             console.log('Download concluído!');
             return outputPath;
-
         } catch (error) {
             console.error('Erro ao baixar o vídeo do youtube:', error);
-            throw new Error('Não consegui baixar esse vídeo. O YouTube bloqueou ou o link é inválido.');
+            throw new Error(
+                'Não consegui baixar esse vídeo. O YouTube bloqueou ou o link é inválido.',
+            );
         }
     }
 
@@ -61,14 +61,15 @@ export class YoutubeService {
 
             console.log('Download da música concluído!');
             return outputPath;
-
         } catch (error) {
             console.log(`Ocorreu um erro! :c `, error);
             throw error;
         }
     }
 
-    async recuperarMetaDadosVideo(url: string): Promise<{ titulo: string; autor: string; duracao?: string }> {
+    async recuperarMetaDadosVideo(
+        url: string,
+    ): Promise<{ titulo: string; autor: string; duracao?: string }> {
         try {
             const metadados = await youtubedl(url, {
                 dumpJson: true,

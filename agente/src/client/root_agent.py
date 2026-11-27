@@ -1,8 +1,8 @@
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
-from google.genai import types
 from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnectionParams
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+from google.genai import types
 
 from client.contexto import injetar_contexto
 from client.fallback_model import FallbackGemini
@@ -10,6 +10,7 @@ from client.historico import limitar_historico
 from client.instruction import INSTRUCTION, NOME_BOT
 from client.roteador import filtrar_tools, forcar_salvamento, injetar_instrucao
 from client.session import APP_NAME, session_service
+from config import settings
 from shared import request_context
 from tools.tools import (
     agendar_alerta,
@@ -41,7 +42,6 @@ from tools.tools import (
     registrar_rosto,
     salvar_memoria,
 )
-from config import settings
 
 # Tools MCP de agendamento NÃO são expostas cruas ao LLM: elas têm wrappers
 # Python (agendar/listar/cancelar/editar_alerta) que injetam a identidade
@@ -75,11 +75,11 @@ mcp_toolset = MCPToolset(
 # Mantenha esta lista em sincronia com _TOOLS_POR_ROTA["notas"] em roteador.py.
 # Subconjunto SEGURO (sem delete-note/rename-folder): escrever e consultar.
 _NOTES_TOOLS_EXPOSTAS = {
-    "create-note",        # escrever nota nova
-    "search-notes",       # buscar por título/conteúdo
-    "get-note-content",   # ler o corpo de uma nota
-    "append-to-note",     # anexar a uma nota existente
-    "list-folders",       # listar pastas (contexto p/ criar na pasta certa)
+    "create-note",  # escrever nota nova
+    "search-notes",  # buscar por título/conteúdo
+    "get-note-content",  # ler o corpo de uma nota
+    "append-to-note",  # anexar a uma nota existente
+    "list-folders",  # listar pastas (contexto p/ criar na pasta certa)
 }
 
 

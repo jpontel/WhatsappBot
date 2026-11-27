@@ -54,7 +54,9 @@ describe('vacuo-grupo (detector de silêncio)', () => {
         (ultimaDoChat as any).mockReturnValue({ msgId: 'm1' });
         (listarPendentes as any).mockReturnValue([]);
         pExecute = vi.fn().mockResolvedValue(undefined);
-        (carregarComandos as any).mockResolvedValue(new Map([['/p', { name: '/p', execute: pExecute }]]));
+        (carregarComandos as any).mockResolvedValue(
+            new Map([['/p', { name: '/p', execute: pExecute }]]),
+        );
     });
     afterEach(() => vi.useRealTimers());
 
@@ -71,7 +73,15 @@ describe('vacuo-grupo (detector de silêncio)', () => {
 
     it('mídia-sozinha (sticker) também agenda', async () => {
         (textoParaContexto as any).mockReturnValue('[figurinha]');
-        const m = { key: { id: 'm1', remoteJid: JID, participant: '5511999999999@s.whatsapp.net', fromMe: false }, message: { stickerMessage: {} } } as any;
+        const m = {
+            key: {
+                id: 'm1',
+                remoteJid: JID,
+                participant: '5511999999999@s.whatsapp.net',
+                fromMe: false,
+            },
+            message: { stickerMessage: {} },
+        } as any;
         await observar(sock, m, JID, { ehGatilho: false });
         expect(_tamanho()).toBe(1);
         await vi.advanceTimersByTimeAsync(1000);
@@ -119,9 +129,20 @@ describe('vacuo-grupo (detector de silêncio)', () => {
     });
 
     it('inicializar() re-arma uma pendência persistida e dispara (pós-restart)', async () => {
-        const dto = { conteudo: 'to no vacuo', usuarioJid: JID, msg: msg('mX'), remetenteJid: '5511999999999@s.whatsapp.net', ehAdmin: false };
+        const dto = {
+            conteudo: 'to no vacuo',
+            usuarioJid: JID,
+            msg: msg('mX'),
+            remetenteJid: '5511999999999@s.whatsapp.net',
+            ehAdmin: false,
+        };
         (listarPendentes as any).mockReturnValue([
-            { grupo_jid: JID, msg_id: 'mX', fire_at: new Date(Date.now() + 500).toISOString(), payload: JSON.stringify(dto) },
+            {
+                grupo_jid: JID,
+                msg_id: 'mX',
+                fire_at: new Date(Date.now() + 500).toISOString(),
+                payload: JSON.stringify(dto),
+            },
         ]);
 
         inicializar();
@@ -135,7 +156,12 @@ describe('vacuo-grupo (detector de silêncio)', () => {
 
     it('inicializar() descarta pendência vencida há mais de uma janela (estale)', async () => {
         (listarPendentes as any).mockReturnValue([
-            { grupo_jid: JID, msg_id: 'velha', fire_at: new Date(Date.now() - 5000).toISOString(), payload: '{}' },
+            {
+                grupo_jid: JID,
+                msg_id: 'velha',
+                fire_at: new Date(Date.now() - 5000).toISOString(),
+                payload: '{}',
+            },
         ]);
         inicializar();
         expect(_tamanho()).toBe(0);

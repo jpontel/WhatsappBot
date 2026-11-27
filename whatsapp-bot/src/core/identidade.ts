@@ -1,4 +1,10 @@
-import { jidNormalizedUser, isLidUser, isPnUser, isJidGroup, areJidsSameUser } from '@whiskeysockets/baileys';
+import {
+    jidNormalizedUser,
+    isLidUser,
+    isPnUser,
+    isJidGroup,
+    areJidsSameUser,
+} from '@whiskeysockets/baileys';
 import type { WASocket, WAMessage } from '@whiskeysockets/baileys';
 import { ENV } from '../config/env.js';
 
@@ -46,7 +52,10 @@ export async function resolverLid(sock: WASocket, jid?: string | null): Promise<
  *   alternativo quando o endereçamento veio como LID);
  * - em DM, é o próprio `remoteJid`.
  */
-export async function resolverNumeroRemetente(sock: WASocket, msg: WAMessage): Promise<string | null> {
+export async function resolverNumeroRemetente(
+    sock: WASocket,
+    msg: WAMessage,
+): Promise<string | null> {
     const { remoteJid, participant, participantAlt } = msg.key;
 
     if (isJidGroup(remoteJid ?? undefined)) {
@@ -107,12 +116,14 @@ export function ehAdminPorJid(numeroRemetente?: string | null): boolean {
  */
 function extrairContextInfo(msg: WAMessage) {
     const m = msg.message;
-    return m?.extendedTextMessage?.contextInfo
-        ?? m?.imageMessage?.contextInfo
-        ?? m?.videoMessage?.contextInfo
-        ?? m?.documentMessage?.contextInfo
-        ?? m?.stickerMessage?.contextInfo
-        ?? m?.audioMessage?.contextInfo;
+    return (
+        m?.extendedTextMessage?.contextInfo ??
+        m?.imageMessage?.contextInfo ??
+        m?.videoMessage?.contextInfo ??
+        m?.documentMessage?.contextInfo ??
+        m?.stickerMessage?.contextInfo ??
+        m?.audioMessage?.contextInfo
+    );
 }
 
 /** Lista os `mentionedJid` da mensagem (vazio se não houver). */

@@ -8,7 +8,7 @@ de forma transparente para o agente/sessão (a troca é no nível da chamada ao 
 
 import copy
 import logging
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from google.adk.models import Gemini
 from google.adk.models.llm_request import LlmRequest
@@ -22,7 +22,10 @@ _CODIGOS_SOBRECARGA = {429, 503}
 
 
 def _eh_sobrecarga(exc: Exception) -> bool:
-    return isinstance(exc, (ClientError, ServerError)) and getattr(exc, "code", None) in _CODIGOS_SOBRECARGA
+    return (
+        isinstance(exc, ClientError | ServerError)
+        and getattr(exc, "code", None) in _CODIGOS_SOBRECARGA
+    )
 
 
 def _eh_creditos_esgotados(exc: Exception) -> bool:

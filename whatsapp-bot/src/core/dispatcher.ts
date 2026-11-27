@@ -4,7 +4,12 @@ import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
 import carregarComandos from './comandos.js';
 import { agendamentoRepository } from '../repository/agendamento.repository.js';
 import { schedulerService } from '../services/scheduler.service.js';
-import { resolverNumeroRemetente, ehAdminPorJid, botFoiMencionado, respondeuAoBot } from './identidade.js';
+import {
+    resolverNumeroRemetente,
+    ehAdminPorJid,
+    botFoiMencionado,
+    respondeuAoBot,
+} from './identidade.js';
 import { buscarPorNumero } from '../repository/pessoa.repository.js';
 import { registrar, textoParaContexto } from './contexto.js';
 import { observar as observarVacuoGrupo } from './vacuo-grupo.js';
@@ -67,10 +72,11 @@ export async function enviarMensagem(
 
         const jid = msg.key.remoteJid!;
 
-        const text = msg.message?.conversation
-            || msg.message?.extendedTextMessage?.text
-            || msg.message?.imageMessage?.caption
-            || msg.message?.videoMessage?.caption;
+        const text =
+            msg.message?.conversation ||
+            msg.message?.extendedTextMessage?.text ||
+            msg.message?.imageMessage?.caption ||
+            msg.message?.videoMessage?.caption;
 
         // Buffer de contexto: registra TODA mensagem (gatilho ou não, com ou sem
         // texto) ANTES de qualquer `continue`, para que quando um /p ou @menção
@@ -79,9 +85,7 @@ export async function enviarMensagem(
         // fallback para os dígitos do remetente. Mídia entra só como marcador.
         const textoCtx = textoParaContexto(msg.message);
         if (textoCtx) {
-            const autorCtx = msg.pushName
-                ?? (msg.key.participant ?? jid).split('@')[0]
-                ?? null;
+            const autorCtx = msg.pushName ?? (msg.key.participant ?? jid).split('@')[0] ?? null;
             registrar(jid, {
                 msgId: msg.key.id ?? '',
                 autor: autorCtx,
@@ -93,8 +97,12 @@ export async function enviarMensagem(
         // Mídia direta no turno (foto/figurinha/vídeo/áudio, mesmo SEM legenda).
         // Sem isso, uma figurinha/imagem sozinha não tem `text` e seria descartada
         // antes dos gatilhos — queremos que o agente "veja" e responda a ela.
-        const temMidia = !!(msg.message?.imageMessage || msg.message?.stickerMessage
-            || msg.message?.videoMessage || msg.message?.audioMessage);
+        const temMidia = !!(
+            msg.message?.imageMessage ||
+            msg.message?.stickerMessage ||
+            msg.message?.videoMessage ||
+            msg.message?.audioMessage
+        );
 
         // Só ignora de vez quando NÃO há texto E NÃO há mídia (mensagem vazia de
         // verdade). Mídia-sozinha segue para os gatilhos (e é barrada lá se não
@@ -110,7 +118,7 @@ export async function enviarMensagem(
         const ehComando = !!comando && comandos.has(comando);
         // Comando explícito sempre vence; senão, dispara se a mensagem mencionar o
         // próprio bot (ignora ecos `fromMe` para não entrar em loop).
-        const mencionouBot = !ehComando && !msg.key.fromMe && await botFoiMencionado(sock, msg);
+        const mencionouBot = !ehComando && !msg.key.fromMe && (await botFoiMencionado(sock, msg));
 
         // Bypass em DM: quem está CADASTRADO no banco (ou é o admin) dispara o
         // agente SEM precisar de /p ou @menção numa conversa PRIVADA — a LulaDroid
@@ -128,7 +136,8 @@ export async function enviarMensagem(
         // falar com ele — dispara sem precisar de @menção. Vale em grupo e DM, p/
         // QUALQUER pessoa (cadastrada ou não); ecos fromMe ficam de fora. Reply de
         // figurinha/foto conta igual (respondeuAoBot independe de ter texto).
-        const respondeuBot = !ehComando && !mencionouBot && !msg.key.fromMe && await respondeuAoBot(sock, msg);
+        const respondeuBot =
+            !ehComando && !mencionouBot && !msg.key.fromMe && (await respondeuAoBot(sock, msg));
 
         // Anti-vácuo de grupo: observa TODA msg de grupo (gatilho ou não) para
         // (re)agendar ou cancelar o disparo por silêncio. Roda ANTES do descarte
@@ -144,7 +153,9 @@ export async function enviarMensagem(
 
         const remetenteNumero = await resolverNumeroRemetente(sock, msg);
         const ehAdmin = ehAdminPorJid(remetenteNumero);
-        console.log(`[admin-debug] remoteJid=${msg.key.remoteJid} participant=${msg.key.participant ?? '-'} resolvido=${remetenteNumero ?? 'null'} ehAdmin=${ehAdmin}`);
+        console.log(
+            `[admin-debug] remoteJid=${msg.key.remoteJid} participant=${msg.key.participant ?? '-'} resolvido=${remetenteNumero ?? 'null'} ehAdmin=${ehAdmin}`,
+        );
         const remetenteJid = isJidGroup(jid) ? (msg.key.participant ?? undefined) : jid;
 
         if (ehComando) {
@@ -171,6 +182,13 @@ export async function enviarMensagem(
         // pro /p. O agente responde com base no [contexto-recente] (últimas msgs)
         // + a imagem/mídia em que foi mencionado. Não existe mais o atalho
         // "me chama junto com a pergunta" — mencionar já basta pra ela responder.
-        await cmdP.execute({ sock, conteudo: conteudoSemMencao, usuarioJid: jid, msg, remetenteJid, ehAdmin });
+        await cmdP.execute({
+            sock,
+            conteudo: conteudoSemMencao,
+            usuarioJid: jid,
+            msg,
+            remetenteJid,
+            ehAdmin,
+        });
     }
 }

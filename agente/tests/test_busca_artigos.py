@@ -62,7 +62,12 @@ _S2_PAYLOAD = {
         {
             "title": "Coffee and longevity",
             "year": 2021,
-            "authors": [{"name": "A. Silva"}, {"name": "B. Souza"}, {"name": "C. Lima"}, {"name": "D. Reis"}],
+            "authors": [
+                {"name": "A. Silva"},
+                {"name": "B. Souza"},
+                {"name": "C. Lima"},
+                {"name": "D. Reis"},
+            ],
             "url": "https://example.org/paper1",
             "citationCount": 42,
             "tldr": {"text": "Café moderado associa-se a maior longevidade."},
@@ -178,6 +183,7 @@ async def test_deepsearch_erro_vira_dict(monkeypatch):
 
 
 # --- helper de reconstrução do abstract --------------------------------------
+
 
 def test_remontar_abstract_ordena_palavras():
     indice = {"mundo": [1], "olá": [0], "lindo": [2]}

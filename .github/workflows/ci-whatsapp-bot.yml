@@ -1,0 +1,71 @@
+name: CI - whatsapp-bot
+
+on:
+  pull_request:
+    paths:
+      - 'whatsapp-bot/**'
+      - '.github/workflows/ci-whatsapp-bot.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'whatsapp-bot/**'
+      - '.github/workflows/ci-whatsapp-bot.yml'
+
+defaults:
+  run:
+    working-directory: whatsapp-bot
+
+jobs:
+  typecheck:
+    name: Verificação de tipos (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: whatsapp-bot/package-lock.json
+      # Bug conhecido do npm 10.8.2 (documentado no Dockerfile) quebra a resolução
+      # de árvore deste projeto — upgrade antes de qualquer install/ci.
+      - run: npm install -g npm@11
+      # --ignore-scripts é seguro aqui: tsc só analisa tipos, não executa nada.
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
+
+  lint:
+    name: Lint e formatação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: whatsapp-bot/package-lock.json
+      - run: npm install -g npm@11
+      # --ignore-scripts é seguro aqui: eslint/prettier só parseiam, não executam.
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run format:check
+
+  test:
+    name: Testes (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: whatsapp-bot/package-lock.json
+      - run: npm install -g npm@11
+      # SEM --ignore-scripts: os testes importam better-sqlite3/canvas em runtime
+      # (via src/repository/* e src/mcp/mcp.server.ts) — precisam dos binários
+      # nativos compilados de verdade. Libs de sistema espelham o Dockerfile.
+      - name: Instalar libs de sistema (canvas)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+      - run: npm ci
+      - run: npm test

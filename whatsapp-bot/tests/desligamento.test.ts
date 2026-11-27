@@ -55,8 +55,12 @@ describe('criarDesligamento', () => {
 
     it('flush ANTES de encerrar o socket (ordem importa p/ não perder o último ratchet)', async () => {
         const ordem: string[] = [];
-        const salvar = vi.fn(async () => { ordem.push('salvar'); });
-        const end = vi.fn(async () => { ordem.push('end'); });
+        const salvar = vi.fn(async () => {
+            ordem.push('salvar');
+        });
+        const end = vi.fn(async () => {
+            ordem.push('end');
+        });
         const { deps } = fazerDeps({
             obterSalvarCredenciais: () => salvar,
             obterSocket: () => ({ end }) as any,

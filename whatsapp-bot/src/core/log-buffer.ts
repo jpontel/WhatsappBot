@@ -17,9 +17,7 @@ const RE_SEGREDO = /(AIza[\w-]+|AQ\.[\w-]+|gh[po]_[A-Za-z0-9]+|Bearer\s+[\w.-]+|
 const RE_NUM = /\b\d{10,}\b/g;
 
 function redigir(texto: string): string {
-    return texto
-        .replace(RE_SEGREDO, '***')
-        .replace(RE_NUM, (m) => m.slice(0, 4) + '***');
+    return texto.replace(RE_SEGREDO, '***').replace(RE_NUM, (m) => m.slice(0, 4) + '***');
 }
 
 function paraTexto(args: unknown[]): string {
@@ -53,28 +51,47 @@ export function instalarLogBuffer(): void {
         warn: console.warn.bind(console),
         error: console.error.bind(console),
     };
-    console.log = (...a: unknown[]) => { push('INFO', a); orig.log(...a); };
-    console.info = (...a: unknown[]) => { push('INFO', a); orig.info(...a); };
-    console.warn = (...a: unknown[]) => { push('WARNING', a); orig.warn(...a); };
-    console.error = (...a: unknown[]) => { push('ERROR', a); orig.error(...a); };
+    console.log = (...a: unknown[]) => {
+        push('INFO', a);
+        orig.log(...a);
+    };
+    console.info = (...a: unknown[]) => {
+        push('INFO', a);
+        orig.info(...a);
+    };
+    console.warn = (...a: unknown[]) => {
+        push('WARNING', a);
+        orig.warn(...a);
+    };
+    console.error = (...a: unknown[]) => {
+        push('ERROR', a);
+        orig.error(...a);
+    };
 }
 
 function fmtTs(epoch: number): string {
-    return new Date(epoch).toLocaleTimeString('pt-BR', { hour12: false, timeZone: 'America/Sao_Paulo' });
+    return new Date(epoch).toLocaleTimeString('pt-BR', {
+        hour12: false,
+        timeZone: 'America/Sao_Paulo',
+    });
 }
 
 /** Logs filtrados (estruturado, redigido, truncado). `resumo` = contagem por tipo. */
-export function recuperarLogs(opts: {
-    nivel?: string;
-    comp?: string;
-    limite?: number;
-    resumo?: boolean;
-} = {}): { svc: string; total: number; logs?: string[]; resumo?: Record<string, number> } {
+export function recuperarLogs(
+    opts: {
+        nivel?: string;
+        comp?: string;
+        limite?: number;
+        resumo?: boolean;
+    } = {},
+): { svc: string; total: number; logs?: string[]; resumo?: Record<string, number> } {
     const minimo = NIVEIS[(opts.nivel || 'WARNING').toUpperCase()] ?? 30;
     const limite = Math.max(1, Math.min(opts.limite ?? 30, LIMITE_MAX));
 
     const itens = buffer
-        .filter((r) => (NIVEIS[r.nivel] ?? 0) >= minimo && (!opts.comp || r.comp.includes(opts.comp)))
+        .filter(
+            (r) => (NIVEIS[r.nivel] ?? 0) >= minimo && (!opts.comp || r.comp.includes(opts.comp)),
+        )
         .slice(-limite);
 
     if (opts.resumo) {

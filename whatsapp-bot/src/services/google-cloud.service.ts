@@ -1,6 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
-import db from "../config/database.js";
-import { ENV } from "../config/env.js";
+import { GoogleGenAI } from '@google/genai';
+import db from '../config/database.js';
+import { ENV } from '../config/env.js';
 
 export class GoogleCloudService {
     ai: any;
@@ -9,7 +9,7 @@ export class GoogleCloudService {
 
     constructor() {
         this.ai = new GoogleGenAI({});
-        this.model = "gemini-3-flash-preview";
+        this.model = 'gemini-3-flash-preview';
         this.systemInstructions = `
         [ROLE]: Você é um agente especializado em responder perguntas a curiosidades e gerar mensagens de acordo com o seu humor.
 
@@ -61,7 +61,7 @@ export class GoogleCloudService {
 
         return mensagensHistorico.map((msg: any) => ({
             role: msg.role,
-            parts: [{text: msg.content}],
+            parts: [{ text: msg.content }],
         }));
     }
 
@@ -69,14 +69,17 @@ export class GoogleCloudService {
         const alterarMensagem = db.prepare(`
             insert into mensagens(chat_id, role, content)
             values (?, ?, ?)    
-        `)
+        `);
 
         alterarMensagem.run(chatId, role, content);
     }
 
-    async gerarConteudo(gerarConteudoDto: { chatId: any; content: any; media?: { data: any; mimetype: any; } | null; }) {
-
-       if(gerarConteudoDto.chatId) {
+    async gerarConteudo(gerarConteudoDto: {
+        chatId: any;
+        content: any;
+        media?: { data: any; mimetype: any } | null;
+    }) {
+        if (gerarConteudoDto.chatId) {
             const historico = this._recuperarHistorico(gerarConteudoDto.chatId);
 
             const startTime = Date.now();
@@ -85,29 +88,26 @@ export class GoogleCloudService {
             const chatSession = this.ai.chats.create({
                 model: this.model,
                 config: {
-                    systemInstruction: this.systemInstructions
+                    systemInstruction: this.systemInstructions,
                 },
-                history: historico
+                history: historico,
             });
 
             const parts = [];
 
-            if(gerarConteudoDto.content)
-                parts.push({ text: gerarConteudoDto.content });
+            if (gerarConteudoDto.content) parts.push({ text: gerarConteudoDto.content });
 
-            if(gerarConteudoDto.media) {
-
+            if (gerarConteudoDto.media) {
                 parts.push({
                     inlineData: {
                         data: gerarConteudoDto.media.data,
-                        mimeType: gerarConteudoDto.media.mimetype
-                    }
+                        mimeType: gerarConteudoDto.media.mimetype,
+                    },
                 });
-                
             }
 
             const result = await chatSession.sendMessage({
-                message: parts
+                message: parts,
             });
             const response = result.text;
 
@@ -118,25 +118,21 @@ export class GoogleCloudService {
             this._salvarMensagem(gerarConteudoDto.chatId, 'model', response);
 
             return response;
-
         } else {
             const response = await this.ai.models.generateContent({
-                model: "gemini-3-flash-preview",
+                model: 'gemini-3-flash-preview',
                 contents: gerarConteudoDto.content,
                 config: {
-                    systemInstruction: this.systemInstructions
-                }
+                    systemInstruction: this.systemInstructions,
+                },
             });
 
             return response.text;
         }
+    }
 
-    }    
-
-    async gerarMidia(gerarMidiaDto: { type: string; content: any; }) {
-        
-        if(gerarMidiaDto.type === "imagem") {
-
+    async gerarMidia(gerarMidiaDto: { type: string; content: any }) {
+        if (gerarMidiaDto.type === 'imagem') {
             const startTime = Date.now();
             console.log(`[IMAGEM] Iniciando geração.`);
 
@@ -145,30 +141,31 @@ export class GoogleCloudService {
                 contents: `Gere uma imagem sobre: ${gerarMidiaDto.content}`,
                 config: {
                     imageConfig: {
-                        imageSize: "512px", 
-                        aspectRatio: "1:1"  
-                    }
-                }
+                        imageSize: '512px',
+                        aspectRatio: '1:1',
+                    },
+                },
             });
 
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
             console.log(`[IMAGEM] Sucesso! Finalizado em ${elapsed} segundos.`);
 
             const parts = response.candidates[0].content.parts;
-            const imagePart = parts.find((part: { inlineData: any; }) => part.inlineData);
+            const imagePart = parts.find((part: { inlineData: any }) => part.inlineData);
 
             if (!imagePart) {
-                const textPart = parts.find((part: { text: any; }) => part.text);
-                const mensagem = textPart ? textPart.text : "A IA não retornou imagem (possível filtro de segurança).";
+                const textPart = parts.find((part: { text: any }) => part.text);
+                const mensagem = textPart
+                    ? textPart.text
+                    : 'A IA não retornou imagem (possível filtro de segurança).';
                 throw new Error(`Falha ao gerar imagem: ${mensagem}`);
             }
 
             return imagePart.inlineData.data;
         }
 
-        if(gerarMidiaDto.type === "video") {
-            
-            return
+        if (gerarMidiaDto.type === 'video') {
+            return;
             // const startTime = Date.now();
             // console.log(`[VÍDEO] Iniciando geração.`);
 
@@ -197,13 +194,11 @@ export class GoogleCloudService {
             // });
 
             // const buffer = await video.arrayBuffer();
-            
+
             // const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
             // console.log(`[VÍDEO] Sucesso! Finalizado em ${elapsed} segundos.`);
 
             // return Buffer.from(buffer).toString("base64");
         }
-        
     }
-    
 }

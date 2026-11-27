@@ -12,8 +12,8 @@ import wave
 
 import tools.tools as tools
 
-
 # --- _pcm_para_wav / _taxa_do_mime -------------------------------------------
+
 
 def test_pcm_para_wav_gera_header_valido():
     pcm = b"\x00\x01" * 1000  # 1000 amostras 16-bit
@@ -35,6 +35,7 @@ def test_taxa_do_mime():
 
 
 # --- gerar_audio -------------------------------------------------------------
+
 
 class _FakeInline:
     def __init__(self, data, mime):
@@ -65,6 +66,7 @@ class _FakeResponse:
 
 def _patch_genai(monkeypatch, parts):
     """Faz genai.Client(...).aio.models.generate_content devolver `parts`."""
+
     async def fake_generate(**kwargs):
         return _FakeResponse(parts)
 
@@ -107,6 +109,7 @@ async def test_gerar_audio_sem_inline_vira_erro(monkeypatch):
 
 async def test_gerar_audio_excecao_da_api_vira_erro(monkeypatch):
     """Quota/erro de API (ex.: 429) degrada p/ erro-dict, não levanta."""
+
     async def fake_generate(**kwargs):
         raise RuntimeError("429 RESOURCE_EXHAUSTED")
 
@@ -129,6 +132,7 @@ async def test_gerar_audio_excecao_da_api_vira_erro(monkeypatch):
 
 
 # --- enviar_audio_gerado -----------------------------------------------------
+
 
 async def test_enviar_audio_gerado_chama_mcp(monkeypatch):
     chamadas = []

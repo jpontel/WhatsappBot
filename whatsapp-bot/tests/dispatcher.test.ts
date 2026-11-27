@@ -47,7 +47,12 @@ function msgComMencao(remoteJid: string, text: string, mentionedJid: string[], f
 }
 
 // Foto com legenda: a menção fica em imageMessage.contextInfo (não em extendedTextMessage).
-function msgFotoComMencao(remoteJid: string, caption: string, mentionedJid: string[], fromMe = false) {
+function msgFotoComMencao(
+    remoteJid: string,
+    caption: string,
+    mentionedJid: string[],
+    fromMe = false,
+) {
     return {
         key: { id: 'm1', remoteJid, fromMe },
         message: { imageMessage: { caption, contextInfo: { mentionedJid } } },
@@ -62,7 +67,11 @@ function msgReplyA(remoteJid: string, text: string, autorCitado: string, fromMe 
         message: {
             extendedTextMessage: {
                 text,
-                contextInfo: { participant: autorCitado, stanzaId: 'BOT1', quotedMessage: { conversation: 'msg do bot' } },
+                contextInfo: {
+                    participant: autorCitado,
+                    stanzaId: 'BOT1',
+                    quotedMessage: { conversation: 'msg do bot' },
+                },
             },
         },
     } as any;
@@ -117,14 +126,10 @@ describe('enviarMensagem (dispatcher)', () => {
             message: { extendedTextMessage: { text: '/oi mundo' } },
         } as any;
 
-        await enviarMensagem(
-            mockSock(),
-            { messages: [msg], type: 'notify' },
-            carregador,
-        );
+        await enviarMensagem(mockSock(), { messages: [msg], type: 'notify' }, carregador);
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('mundo');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('mundo');
     });
 
     it('extrai texto de caption de imagem', async () => {
@@ -136,14 +141,10 @@ describe('enviarMensagem (dispatcher)', () => {
             message: { imageMessage: { caption: '/oi com foto' } },
         } as any;
 
-        await enviarMensagem(
-            mockSock(),
-            { messages: [msg], type: 'notify' },
-            carregador,
-        );
+        await enviarMensagem(mockSock(), { messages: [msg], type: 'notify' }, carregador);
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('com foto');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('com foto');
     });
 
     it('chama execute do comando certo com ComandoExecutarDto correto', async () => {
@@ -156,14 +157,10 @@ describe('enviarMensagem (dispatcher)', () => {
 
         const msg = msgComTexto('5511@s.whatsapp.net', '/oi pessoal');
 
-        await enviarMensagem(
-            sock,
-            { messages: [msg], type: 'notify' },
-            carregador,
-        );
+        await enviarMensagem(sock, { messages: [msg], type: 'notify' }, carregador);
 
         expect(execute).toHaveBeenCalledOnce();
-        const dto = execute.mock.calls[0][0];
+        const dto = execute.mock.calls[0]![0];
         expect(dto.sock).toBe(sock);
         expect(dto.conteudo).toBe('pessoal');
         expect(dto.usuarioJid).toBe('5511@s.whatsapp.net');
@@ -202,12 +199,19 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgComMencao('123@g.us', '@550000000001 qual a capital', ['550000000001@s.whatsapp.net'])], type: 'notify' },
+            {
+                messages: [
+                    msgComMencao('123@g.us', '@550000000001 qual a capital', [
+                        '550000000001@s.whatsapp.net',
+                    ]),
+                ],
+                type: 'notify',
+            },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('qual a capital');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('qual a capital');
     });
 
     it('reply a uma mensagem do PRÓPRIO bot aciona o /p sem @menção', async () => {
@@ -216,12 +220,15 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgReplyA('123@g.us', 'e aí', '550000000001@s.whatsapp.net')], type: 'notify' },
+            {
+                messages: [msgReplyA('123@g.us', 'e aí', '550000000001@s.whatsapp.net')],
+                type: 'notify',
+            },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('e aí');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('e aí');
     });
 
     it('reply a OUTRA pessoa (não o bot) NÃO aciona o /p', async () => {
@@ -230,7 +237,10 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgReplyA('123@g.us', 'e aí', '5599999999999@s.whatsapp.net')], type: 'notify' },
+            {
+                messages: [msgReplyA('123@g.us', 'e aí', '5599999999999@s.whatsapp.net')],
+                type: 'notify',
+            },
             carregador,
         );
 
@@ -243,12 +253,15 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgComMencao('123@g.us', '/p oi', ['550000000001@s.whatsapp.net'])], type: 'notify' },
+            {
+                messages: [msgComMencao('123@g.us', '/p oi', ['550000000001@s.whatsapp.net'])],
+                type: 'notify',
+            },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('oi');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('oi');
     });
 
     it('menção em mensagem fromMe (eco do bot) não dispara', async () => {
@@ -257,7 +270,17 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgComMencao('123@g.us', '@550000000001 oi', ['550000000001@s.whatsapp.net'], true)], type: 'notify' },
+            {
+                messages: [
+                    msgComMencao(
+                        '123@g.us',
+                        '@550000000001 oi',
+                        ['550000000001@s.whatsapp.net'],
+                        true,
+                    ),
+                ],
+                type: 'notify',
+            },
             carregador,
         );
 
@@ -273,12 +296,17 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             sock,
-            { messages: [msgComMencao('123@g.us', '@550000000001', ['550000000001@s.whatsapp.net'])], type: 'notify' },
+            {
+                messages: [
+                    msgComMencao('123@g.us', '@550000000001', ['550000000001@s.whatsapp.net']),
+                ],
+                type: 'notify',
+            },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('');
     });
 
     it('menção na legenda de uma FOTO aciona o /p', async () => {
@@ -287,27 +315,41 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSockBot(),
-            { messages: [msgFotoComMencao('123@g.us', '@550000000001 quem é essa pessoa', ['550000000001@s.whatsapp.net'])], type: 'notify' },
+            {
+                messages: [
+                    msgFotoComMencao('123@g.us', '@550000000001 quem é essa pessoa', [
+                        '550000000001@s.whatsapp.net',
+                    ]),
+                ],
+                type: 'notify',
+            },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('quem é essa pessoa');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('quem é essa pessoa');
     });
 
     it('DM de pessoa CADASTRADA aciona o /p sem /p nem @menção (bypass)', async () => {
-        (buscarPorNumero as any).mockReturnValue({ id: 1, numero: '5511999998888@s.whatsapp.net', nome: 'Fulano' });
+        (buscarPorNumero as any).mockReturnValue({
+            id: 1,
+            numero: '5511999998888@s.whatsapp.net',
+            nome: 'Fulano',
+        });
         const execute = vi.fn();
         const carregador = carregadorCom([{ name: '/p', execute }]);
 
         await enviarMensagem(
             mockSock(),
-            { messages: [msgComTexto('5511999998888@s.whatsapp.net', 'oi luladroid tudo bem')], type: 'notify' },
+            {
+                messages: [msgComTexto('5511999998888@s.whatsapp.net', 'oi luladroid tudo bem')],
+                type: 'notify',
+            },
             carregador,
         );
 
         expect(execute).toHaveBeenCalledOnce();
-        expect(execute.mock.calls[0][0].conteudo).toBe('oi luladroid tudo bem');
+        expect(execute.mock.calls[0]![0].conteudo).toBe('oi luladroid tudo bem');
     });
 
     it('DM de pessoa NÃO cadastrada não aciona o /p', async () => {
@@ -317,7 +359,10 @@ describe('enviarMensagem (dispatcher)', () => {
 
         await enviarMensagem(
             mockSock(),
-            { messages: [msgComTexto('5511777776666@s.whatsapp.net', 'oi luladroid')], type: 'notify' },
+            {
+                messages: [msgComTexto('5511777776666@s.whatsapp.net', 'oi luladroid')],
+                type: 'notify',
+            },
             carregador,
         );
 
@@ -325,7 +370,11 @@ describe('enviarMensagem (dispatcher)', () => {
     });
 
     it('em GRUPO o bypass não vale, mesmo para cadastrado (exige /p ou @menção)', async () => {
-        (buscarPorNumero as any).mockReturnValue({ id: 1, numero: '5511999998888@s.whatsapp.net', nome: 'Fulano' });
+        (buscarPorNumero as any).mockReturnValue({
+            id: 1,
+            numero: '5511999998888@s.whatsapp.net',
+            nome: 'Fulano',
+        });
         const execute = vi.fn();
         const carregador = carregadorCom([{ name: '/p', execute }]);
 

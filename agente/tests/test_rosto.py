@@ -9,8 +9,8 @@ então os testes não carregam o modelo.
 import base64 as _b64
 from contextlib import contextmanager
 
-import shared.request_context as rc
 import repo.rosto_repo as rosto_repo
+import shared.request_context as rc
 import tools.tools as tools
 from config import settings
 
@@ -36,6 +36,7 @@ def _ident(numero, eh_admin=False, registrado=True, midia=None):
 
 
 # --- nível tool: cadastro (gate admin-only, foto do turno) --------------------
+
 
 async def test_registrar_rosto_ok(monkeypatch):
     async def fake_embs(_midia, _n):
@@ -99,6 +100,7 @@ async def test_esquecer_rosto_nao_admin(monkeypatch):
 
 
 # --- nível repo (sqlite-vec real, embeddings determinísticos) ----------------
+
 
 async def test_repo_rostos_fluxo(monkeypatch, tmp_path):
     rosto_repo._conn = None
@@ -181,8 +183,10 @@ async def test_repo_fotos_fluxo(monkeypatch, tmp_path):
 
 # --- tool de geração com pessoas (gate + resolução de nomes + faltantes) ----
 
+
 def _mock_buscar_contato(monkeypatch, mapa: dict[str, list[dict]]):
     """mapa: nome -> lista de contatos (como buscar_contato devolveria)."""
+
     async def fake(nome):
         return {"contatos": mapa.get(nome, [])}
 
@@ -218,12 +222,15 @@ async def test_gerar_com_pessoas_nome_nao_encontrado(monkeypatch):
 async def test_gerar_com_pessoas_nome_ambiguo(monkeypatch):
     chamou = []
     monkeypatch.setattr(rosto_repo, "fotos_de", lambda n: chamou.append(n))
-    _mock_buscar_contato(monkeypatch, {
-        "Fulano": [
-            {"nome": "Fulano da Silva", "jid": "A@s.whatsapp.net"},
-            {"nome": "Fulano Souza", "jid": "B@s.whatsapp.net"},
-        ],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "Fulano": [
+                {"nome": "Fulano da Silva", "jid": "A@s.whatsapp.net"},
+                {"nome": "Fulano Souza", "jid": "B@s.whatsapp.net"},
+            ],
+        },
+    )
 
     with _ident("U", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas("x", ["Fulano"], "JID")
@@ -232,20 +239,24 @@ async def test_gerar_com_pessoas_nome_ambiguo(monkeypatch):
 
 
 async def test_gerar_com_pessoas_ambiguo_mas_com_match_exato(monkeypatch):
-    """"Ana" bate em "Ana" E "Mariana" por LIKE parcial, mas a igualdade exata
+    """ "Ana" bate em "Ana" E "Mariana" por LIKE parcial, mas a igualdade exata
     desempata automaticamente, sem erro."""
+
     async def fake_fotos(nums):
         return [{"numero": n, "nome": n, "base64": "img", "mimetype": "image/jpeg"} for n in nums]
 
     monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
     monkeypatch.setattr(tools, "gerar_imagem_com_referencias", _fake_gen_ok)
     monkeypatch.setattr(tools, "chamar_mcp", _fake_mcp_noop)
-    _mock_buscar_contato(monkeypatch, {
-        "Ana": [
-            {"nome": "Ana", "jid": "A@s.whatsapp.net"},
-            {"nome": "Mariana", "jid": "M@s.whatsapp.net"},
-        ],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "Ana": [
+                {"nome": "Ana", "jid": "A@s.whatsapp.net"},
+                {"nome": "Mariana", "jid": "M@s.whatsapp.net"},
+            ],
+        },
+    )
 
     with _ident("U", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas("x", ["Ana"], "JID")
@@ -254,13 +265,18 @@ async def test_gerar_com_pessoas_ambiguo_mas_com_match_exato(monkeypatch):
 
 async def test_gerar_com_pessoas_sem_foto_de_alguem(monkeypatch):
     async def fake_fotos(_nums):
-        return [{"numero": "A@s.whatsapp.net", "nome": "Ana", "base64": "x", "mimetype": "image/jpeg"}]  # falta B
+        return [
+            {"numero": "A@s.whatsapp.net", "nome": "Ana", "base64": "x", "mimetype": "image/jpeg"}
+        ]  # falta B
 
     monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
-    _mock_buscar_contato(monkeypatch, {
-        "Ana": [{"nome": "Ana", "jid": "A@s.whatsapp.net"}],
-        "Beto": [{"nome": "Beto", "jid": "B@s.whatsapp.net"}],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "Ana": [{"nome": "Ana", "jid": "A@s.whatsapp.net"}],
+            "Beto": [{"nome": "Beto", "jid": "B@s.whatsapp.net"}],
+        },
+    )
     with _ident("U", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas("x", ["Ana", "Beto"], "JID")
     assert "erro" in res and "Beto" in res["erro"]
@@ -282,10 +298,13 @@ async def test_gerar_com_pessoas_ok(monkeypatch):
     monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
     monkeypatch.setattr(tools, "gerar_imagem_com_referencias", fake_gen)
     monkeypatch.setattr(tools, "chamar_mcp", fake_mcp)
-    _mock_buscar_contato(monkeypatch, {
-        "X": [{"nome": "X", "jid": "X@s.whatsapp.net"}],
-        "Y": [{"nome": "Y", "jid": "Y@s.whatsapp.net"}],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "X": [{"nome": "X", "jid": "X@s.whatsapp.net"}],
+            "Y": [{"nome": "Y", "jid": "Y@s.whatsapp.net"}],
+        },
+    )
 
     with _ident("U", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas("praia", ["X", "Y"], "JID")
@@ -296,9 +315,12 @@ async def test_gerar_com_pessoas_ok(monkeypatch):
 async def test_gerar_com_pessoas_regressao_dois_nomes_distintos(monkeypatch):
     """Regressão direta do bug relatado: 2 nomes distintos têm que resolver
     para 2 jids DIFERENTES e gerar com 2 fotos distintas — nunca duplicar."""
+
     async def fake_fotos(nums):
         assert nums == ["EDU@s.whatsapp.net", "ANDREI@s.whatsapp.net"]
-        return [{"numero": n, "nome": n, "base64": f"img-{n}", "mimetype": "image/jpeg"} for n in nums]
+        return [
+            {"numero": n, "nome": n, "base64": f"img-{n}", "mimetype": "image/jpeg"} for n in nums
+        ]
 
     recebidas = []
 
@@ -309,10 +331,13 @@ async def test_gerar_com_pessoas_regressao_dois_nomes_distintos(monkeypatch):
     monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
     monkeypatch.setattr(tools, "gerar_imagem_com_referencias", fake_gen)
     monkeypatch.setattr(tools, "chamar_mcp", _fake_mcp_noop)
-    _mock_buscar_contato(monkeypatch, {
-        "edubecks": [{"nome": "edubecks", "jid": "EDU@s.whatsapp.net"}],
-        "andrei": [{"nome": "andrei", "jid": "ANDREI@s.whatsapp.net"}],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "edubecks": [{"nome": "edubecks", "jid": "EDU@s.whatsapp.net"}],
+            "andrei": [{"nome": "andrei", "jid": "ANDREI@s.whatsapp.net"}],
+        },
+    )
 
     with _ident("U", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas("praia", ["edubecks", "andrei"], "JID")
@@ -328,6 +353,7 @@ async def test_gerar_com_pessoas_inclui_foto_do_turno_como_referencia(monkeypatc
     pras pessoas citadas (só tinha as fotos de rosto cadastradas, sem a cena
     original).
     """
+
     async def fake_fotos(nums):
         return [{"numero": n, "nome": n, "base64": "img", "mimetype": "image/jpeg"} for n in nums]
 
@@ -351,11 +377,15 @@ async def test_gerar_com_pessoas_inclui_foto_do_turno_como_referencia(monkeypatc
 
     assert res.get("status") == "ok"
     # Foto do turno vem PRIMEIRO (é a cena base a preservar) + 1 foto de rosto.
-    assert recebidas == [foto_turno, {"numero": "A", "nome": "A", "base64": "img", "mimetype": "image/jpeg"}]
+    assert recebidas == [
+        foto_turno,
+        {"numero": "A", "nome": "A", "base64": "img", "mimetype": "image/jpeg"},
+    ]
 
 
 async def test_gerar_com_pessoas_sem_foto_no_turno_nao_adiciona_nada(monkeypatch):
     """Caminho normal (cena nova, sem foto no turno) continua igual."""
+
     async def fake_fotos(nums):
         return [{"numero": n, "nome": n, "base64": "img", "mimetype": "image/jpeg"} for n in nums]
 
@@ -402,8 +432,11 @@ async def test_gerar_com_pessoas_numero_sem_sufixo(monkeypatch):
     """Regressão: a reconciliação achados/faltando via normalizar_numero precisa
     casar o jid que buscar_contato resolve com o número salvo em rostos_fotos,
     mesmo quando os formatos (com/sem sufixo) divergem."""
+
     async def fake_fotos(_nums):
-        return [{"numero": "555199416342", "nome": "Beck", "base64": "img", "mimetype": "image/jpeg"}]
+        return [
+            {"numero": "555199416342", "nome": "Beck", "base64": "img", "mimetype": "image/jpeg"}
+        ]
 
     async def fake_gen(prompt, imagens):
         return {"base64": "g", "mimetype": "image/png"}
@@ -416,9 +449,12 @@ async def test_gerar_com_pessoas_numero_sem_sufixo(monkeypatch):
     monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
     monkeypatch.setattr(tools, "gerar_imagem_com_referencias", fake_gen)
     monkeypatch.setattr(tools, "chamar_mcp", fake_mcp)
-    _mock_buscar_contato(monkeypatch, {
-        "Beck": [{"nome": "Beck", "jid": "555199416342@s.whatsapp.net"}],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "Beck": [{"nome": "Beck", "jid": "555199416342@s.whatsapp.net"}],
+        },
+    )
 
     with _ident("U", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas("x", ["Beck"], "JID")
@@ -435,7 +471,9 @@ async def test_gerar_com_pessoas_incluir_remetente_sem_nomes(monkeypatch):
     monkeypatch.setattr(tools, "chamar_mcp", _fake_mcp_noop)
 
     with _ident("PROPRIO", registrado=True):
-        res = await tools.gerar_e_enviar_imagem_com_pessoas("selfie", [], "JID", incluir_remetente=True)
+        res = await tools.gerar_e_enviar_imagem_com_pessoas(
+            "selfie", [], "JID", incluir_remetente=True
+        )
     assert res.get("status") == "ok"
 
 
@@ -450,11 +488,14 @@ async def test_gerar_com_pessoas_incluir_remetente_respeita_teto(monkeypatch):
     monkeypatch.setattr(rosto_repo, "fotos_de", fake_fotos)
     monkeypatch.setattr(tools, "gerar_imagem_com_referencias", _fake_gen_ok)
     monkeypatch.setattr(tools, "chamar_mcp", _fake_mcp_noop)
-    _mock_buscar_contato(monkeypatch, {
-        "A": [{"nome": "A", "jid": "A"}],
-        "B": [{"nome": "B", "jid": "B"}],
-        "C": [{"nome": "C", "jid": "C"}],
-    })
+    _mock_buscar_contato(
+        monkeypatch,
+        {
+            "A": [{"nome": "A", "jid": "A"}],
+            "B": [{"nome": "B", "jid": "B"}],
+            "C": [{"nome": "C", "jid": "C"}],
+        },
+    )
 
     with _ident("PROPRIO", registrado=True):
         res = await tools.gerar_e_enviar_imagem_com_pessoas(

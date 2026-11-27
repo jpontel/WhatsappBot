@@ -17,7 +17,11 @@ type EstadoDigitando = { contador: number; timer: ReturnType<typeof setInterval>
 const estados = new Map<string, EstadoDigitando>();
 
 // Envia o presence sem nunca derrubar o fluxo do comando se a conexão falhar.
-async function enviarPresenca(sock: WASocket, jid: string, presenca: 'available' | 'composing' | 'paused'): Promise<void> {
+async function enviarPresenca(
+    sock: WASocket,
+    jid: string,
+    presenca: 'available' | 'composing' | 'paused',
+): Promise<void> {
     try {
         await sock.sendPresenceUpdate(presenca, jid);
     } catch (error) {
@@ -50,7 +54,9 @@ export function iniciarDigitando(sock: WASocket, jid: string): void {
     }
 
     void abrirDigitando(sock, jid);
-    const timer = setInterval(() => { void enviarPresenca(sock, jid, 'composing'); }, REFRESH_MS);
+    const timer = setInterval(() => {
+        void enviarPresenca(sock, jid, 'composing');
+    }, REFRESH_MS);
     estados.set(jid, { contador: 1, timer });
 }
 

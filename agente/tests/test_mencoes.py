@@ -15,6 +15,7 @@ _PESSOAS = [
 def _fake_listar(pessoas=_PESSOAS):
     async def _f(_tool, _args):
         return json.dumps(pessoas)
+
     return _f
 
 

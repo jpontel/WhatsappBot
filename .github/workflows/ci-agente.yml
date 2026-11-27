@@ -1,0 +1,58 @@
+name: CI - agente
+
+on:
+  pull_request:
+    paths:
+      - 'agente/**'
+      - '.github/workflows/ci-agente.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'agente/**'
+      - '.github/workflows/ci-agente.yml'
+
+defaults:
+  run:
+    working-directory: agente
+
+jobs:
+  lint:
+    name: Lint e formatação (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pipx install poetry==2.4.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: poetry
+          cache-dependency-path: agente/poetry.lock
+      - run: poetry install --no-root
+      - run: poetry run ruff check .
+      - run: poetry run ruff format --check .
+
+  test:
+    name: Testes (pytest)
+    runs-on: ubuntu-latest
+    # Settings (config.py) exige essas 2 chaves sem default — não são segredos
+    # reais, só placeholders pra passar na validação do pydantic em CI (nenhum
+    # teste faz chamada de rede real pro Gemini/Tavily).
+    env:
+      GEMINI_API_KEY: dummy-ci-key
+      TAVILY_API_KEY: dummy-ci-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pipx install poetry==2.4.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: poetry
+          cache-dependency-path: agente/poetry.lock
+      - run: poetry install --no-root
+      - run: poetry run pytest

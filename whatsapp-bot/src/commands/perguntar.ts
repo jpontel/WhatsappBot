@@ -1,6 +1,6 @@
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import type { WASocket, WAMessageKey, WAMessage } from '@whiskeysockets/baileys';
-import type { ComandoExecutarDto } from "../dto/comandos.dto.js";
+import type { ComandoExecutarDto } from '../dto/comandos.dto.js';
 import { ENV } from '../config/env.js';
 import { resolverNumeroRemetente } from '../core/identidade.js';
 import { iniciarDigitando, pararDigitando } from '../core/presenca.js';
@@ -14,19 +14,32 @@ const AGENT_TIMEOUT_MS = 180_000;
 const DEBOUNCE_MS = 3_000;
 
 type Midia = { base64: string; mimetype: string };
-type Remetente = { numero: string | null; nome: string | null; registrado: boolean; ehAdmin: boolean };
+type Remetente = {
+    numero: string | null;
+    nome: string | null;
+    registrado: boolean;
+    ehAdmin: boolean;
+};
 type Citacao = { texto: string; autor: string | null };
 // `msg` (WAMessage completa) é guardada p/ o bot RESPONDER citando (reply) a
 // mensagem-gatilho — deixa claro a qual mensagem ele está respondendo.
-type ItemLote = { conteudo: string; msgKey: WAMessageKey; msg: WAMessage; midia: Midia | null; citacao: Citacao | null };
+type ItemLote = {
+    conteudo: string;
+    msgKey: WAMessageKey;
+    msg: WAMessage;
+    midia: Midia | null;
+    citacao: Citacao | null;
+};
 
 // Extrai o texto de uma IMessage (mesma cadeia do dispatcher), serve para a msg citada.
 function extrairTextoMensagem(m: WAMessage['message']): string | null {
-    return m?.conversation
-        || m?.extendedTextMessage?.text
-        || m?.imageMessage?.caption
-        || m?.videoMessage?.caption
-        || null;
+    return (
+        m?.conversation ||
+        m?.extendedTextMessage?.text ||
+        m?.imageMessage?.caption ||
+        m?.videoMessage?.caption ||
+        null
+    );
 }
 type Lote = {
     sock: WASocket;
@@ -46,7 +59,7 @@ async function flush(chave: string): Promise<void> {
     buffers.delete(chave);
 
     const { sock, usuarioJid, remetente, itens } = lote;
-    const keys = itens.map(i => i.msgKey);
+    const keys = itens.map((i) => i.msgKey);
     // Mensagem que o bot vai CITAR (reply) na resposta: a última do lote (a mais
     // recente). Deixa explícito a qual mensagem ele está respondendo — essencial
     // quando foi acionado por reply/menção dentro de um grupo movimentado.
@@ -58,21 +71,22 @@ async function flush(chave: string): Promise<void> {
         const prefixoCitacao = (c: Citacao | null) =>
             c ? `[em resposta a ${c.autor ?? 'alguém'}: "${c.texto}"] ` : '';
 
-        const mensagem = itens.length === 1
-            ? itens[0]!.conteudo
-            : `[lote de ${itens.length} pedidos do mesmo usuário, em ordem de chegada]\n`
-                + itens.map((it, i) => `${i + 1}. ${prefixoCitacao(it.citacao)}${it.conteudo}`).join('\n');
+        const mensagem =
+            itens.length === 1
+                ? itens[0]!.conteudo
+                : `[lote de ${itens.length} pedidos do mesmo usuário, em ordem de chegada]\n` +
+                  itens
+                      .map((it, i) => `${i + 1}. ${prefixoCitacao(it.citacao)}${it.conteudo}`)
+                      .join('\n');
 
-        const midia = itens.find(i => i.midia)?.midia ?? null;
+        const midia = itens.find((i) => i.midia)?.midia ?? null;
         const msgKey = itens[itens.length - 1]!.msgKey;
         const citacao = itens.length === 1 ? itens[0]!.citacao : null;
 
         // Contexto recente do chat: as últimas N mensagens que chegaram ANTES do
         // gatilho. Excluímos os ids do próprio lote (já registrados no buffer pelo
         // dispatcher) para não duplicar a mensagem-gatilho — ela já vai em `mensagem`.
-        const idsLote = new Set(
-            itens.map(i => i.msgKey.id).filter((id): id is string => !!id),
-        );
+        const idsLote = new Set(itens.map((i) => i.msgKey.id).filter((id): id is string => !!id));
         const contexto = snapshot(usuarioJid, idsLote, ENV.CONTEXTO_MAX_MSGS);
 
         const resposta = await axios.post(
@@ -92,11 +106,13 @@ async function flush(chave: string): Promise<void> {
         // A reação de conclusão (💅) é emitida pelo AGENTE, e só em turnos de
         // AÇÃO (ver agente/src/api/chat.py). Conversa normal não ganha reação.
     } catch (error: unknown) {
-        console.error("Erro no /p (ponte agente):", error);
-        const offline = axios.isAxiosError(error) && (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED');
+        console.error('Erro no /p (ponte agente):', error);
+        const offline =
+            axios.isAxiosError(error) &&
+            (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED');
         const texto = offline
-            ? "❌ Agente fora do ar, tenta de novo daqui a pouco 🥲"
-            : "❌ Ixe, deu ruim na IA :p";
+            ? '❌ Agente fora do ar, tenta de novo daqui a pouco 🥲'
+            : '❌ Ixe, deu ruim na IA :p';
         for (const key of keys) {
             await sock.sendMessage(usuarioJid, { react: { text: '❌', key } });
         }
@@ -123,8 +139,11 @@ export default {
         const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
         const quoted = contextInfo?.quotedMessage;
         const mensagemMidia = quoted ? quoted : msg.message;
-        const temMidia = mensagemMidia?.imageMessage || mensagemMidia?.stickerMessage
-            || mensagemMidia?.videoMessage || mensagemMidia?.audioMessage;
+        const temMidia =
+            mensagemMidia?.imageMessage ||
+            mensagemMidia?.stickerMessage ||
+            mensagemMidia?.videoMessage ||
+            mensagemMidia?.audioMessage;
 
         // Texto vazio NÃO é mais rejeitado: mesmo só mencionada (com ou sem mídia),
         // a LulaDroid responde com base no [contexto-recente] (últimas ~10 msgs) e na
@@ -145,14 +164,15 @@ export default {
                     {},
                     { reuploadRequest: sock.updateMediaMessage, logger: pino({ level: 'error' }) },
                 );
-                const mimetype = mensagemMidia?.imageMessage?.mimetype
-                    || mensagemMidia?.stickerMessage?.mimetype
-                    || mensagemMidia?.videoMessage?.mimetype
-                    || mensagemMidia?.audioMessage?.mimetype
-                    || 'image/jpeg';
+                const mimetype =
+                    mensagemMidia?.imageMessage?.mimetype ||
+                    mensagemMidia?.stickerMessage?.mimetype ||
+                    mensagemMidia?.videoMessage?.mimetype ||
+                    mensagemMidia?.audioMessage?.mimetype ||
+                    'image/jpeg';
                 midia = { base64: (buffer as Buffer).toString('base64'), mimetype };
             } catch (e) {
-                console.error("Erro ao baixar mídia no /p:", e);
+                console.error('Erro ao baixar mídia no /p:', e);
             }
         }
 
@@ -169,7 +189,12 @@ export default {
         const pessoa = numero ? buscarPorNumero(numero) : null;
         const ehAdminBool = !!ehAdmin;
         const nome = pessoa?.nome ?? (ehAdminBool ? (ENV.ADMIN_NOME ?? 'guigo') : null);
-        const remetente: Remetente = { numero, nome, registrado: ehAdminBool || !!pessoa, ehAdmin: ehAdminBool };
+        const remetente: Remetente = {
+            numero,
+            nome,
+            registrado: ehAdminBool || !!pessoa,
+            ehAdmin: ehAdminBool,
+        };
 
         // Lote por remetente, dentro do chat.
         const chave = `${usuarioJid}|${numero ?? remetenteJid ?? 'anon'}`;
@@ -179,7 +204,9 @@ export default {
         const itens = existente ? existente.itens : [];
         itens.push({ conteudo, msgKey: msg.key, msg, midia, citacao });
 
-        const timer = setTimeout(() => { void flush(chave); }, DEBOUNCE_MS);
+        const timer = setTimeout(() => {
+            void flush(chave);
+        }, DEBOUNCE_MS);
         buffers.set(chave, { sock, usuarioJid, remetente, itens, timer });
     },
 };

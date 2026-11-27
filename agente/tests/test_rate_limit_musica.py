@@ -7,8 +7,8 @@ A janela é em memória; aqui controlamos o tempo via monkeypatch de `time.monot
 
 from contextlib import contextmanager
 
-import tools.tools as tools
 import shared.request_context as rc
+import tools.tools as tools
 from config import settings
 
 
@@ -28,15 +28,16 @@ def _reset():
 
 # --- lógica do helper --------------------------------------------------------
 
+
 def test_acumula_ate_o_teto_e_bloqueia(monkeypatch):
     monkeypatch.setattr(settings, "musica_rate_max", 3)
     monkeypatch.setattr(settings, "musica_rate_janela_seg", 300)
     _reset()
     with _ident("A"):
-        assert tools._checar_limite_musica() is None   # 1
-        assert tools._checar_limite_musica() is None   # 2
-        assert tools._checar_limite_musica() is None   # 3
-        estouro = tools._checar_limite_musica()        # 4 → bloqueia
+        assert tools._checar_limite_musica() is None  # 1
+        assert tools._checar_limite_musica() is None  # 2
+        assert tools._checar_limite_musica() is None  # 3
+        estouro = tools._checar_limite_musica()  # 4 → bloqueia
     assert estouro and "Limite" in estouro
 
 
@@ -46,9 +47,9 @@ def test_escopo_por_usuario(monkeypatch):
     _reset()
     with _ident("A"):
         assert tools._checar_limite_musica() is None
-        assert tools._checar_limite_musica() is not None   # A estourou
+        assert tools._checar_limite_musica() is not None  # A estourou
     with _ident("B"):
-        assert tools._checar_limite_musica() is None       # B é independente
+        assert tools._checar_limite_musica() is None  # B é independente
 
 
 def test_jid_e_numero_puro_sao_o_mesmo_balde(monkeypatch):
@@ -59,7 +60,7 @@ def test_jid_e_numero_puro_sao_o_mesmo_balde(monkeypatch):
     with _ident("A"):
         assert tools._checar_limite_musica() is None
     with _ident("A@s.whatsapp.net"):
-        assert tools._checar_limite_musica() is not None   # conta junto com "A"
+        assert tools._checar_limite_musica() is not None  # conta junto com "A"
 
 
 def test_independente_do_balde_de_imagem(monkeypatch):
@@ -73,9 +74,9 @@ def test_independente_do_balde_de_imagem(monkeypatch):
     with tools._geracao_lock:
         tools._geracao_hist.clear()
     with _ident("A"):
-        assert tools._checar_limite_musica() is None        # música 1 (ok)
-        assert tools._checar_limite_musica() is not None    # música estourou
-        assert tools._checar_limite_geracao() is None       # imagem ainda livre
+        assert tools._checar_limite_musica() is None  # música 1 (ok)
+        assert tools._checar_limite_musica() is not None  # música estourou
+        assert tools._checar_limite_geracao() is None  # imagem ainda livre
 
 
 def test_janela_desliza_e_libera(monkeypatch):
@@ -85,14 +86,15 @@ def test_janela_desliza_e_libera(monkeypatch):
     monkeypatch.setattr(tools.time, "monotonic", lambda: relogio["t"])
     _reset()
     with _ident("A"):
-        assert tools._checar_limite_musica() is None       # t=1000
-        assert tools._checar_limite_musica() is None       # t=1000
-        assert tools._checar_limite_musica() is not None   # t=1000 → estourou
-        relogio["t"] += 301                                # saiu da janela
-        assert tools._checar_limite_musica() is None       # liberou
+        assert tools._checar_limite_musica() is None  # t=1000
+        assert tools._checar_limite_musica() is None  # t=1000
+        assert tools._checar_limite_musica() is not None  # t=1000 → estourou
+        relogio["t"] += 301  # saiu da janela
+        assert tools._checar_limite_musica() is None  # liberou
 
 
 # --- integração: o gate aborta a geração ANTES de chamar a API ---------------
+
 
 async def test_gerar_musica_aborta_no_limite_sem_tocar_na_api(monkeypatch):
     # max=0 bloqueia logo de cara; o retorno {erro} prova que nem criou o client

@@ -26,7 +26,12 @@ async def test_imagem_buscada_entrega_via_mcp_sem_base64_no_retorno(monkeypatch)
 
     async def fake_buscar(query):
         assert query == "gato siamês"
-        return {"base64": _B64_GRANDE, "mimetype": "image/jpeg", "url": "http://x/y.jpg", "titulo": "gato"}
+        return {
+            "base64": _B64_GRANDE,
+            "mimetype": "image/jpeg",
+            "url": "http://x/y.jpg",
+            "titulo": "gato",
+        }
 
     monkeypatch.setattr(tools, "buscar_imagem", fake_buscar)
 

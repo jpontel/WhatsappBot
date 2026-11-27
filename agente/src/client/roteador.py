@@ -49,40 +49,66 @@ _BASE = frozenset({"reagir"})
 
 # Subconjuntos por rota. União com _BASE é feita em `tools_da_rota`.
 _TOOLS_POR_ROTA: dict[str, frozenset[str]] = {
-    "geracao_visual": frozenset({
-        "gerar_e_enviar_imagem", "gerar_e_enviar_imagem_com_pessoas",
-        "buscar_e_enviar_imagem", "gerar_e_enviar_sticker",
-        "enviar_sticker_gerado", "buscar_e_enviar_sticker",
-        "editar_e_enviar_imagem", "editar_e_enviar_sticker",
-        "gerar_e_enviar_semaninha", "converter_em_sticker",
-    }),
-    "edicao_visual": frozenset({
-        "editar_e_enviar_imagem", "editar_e_enviar_sticker",
-        "gerar_e_enviar_imagem", "gerar_e_enviar_sticker",
-        "converter_em_sticker",
-        # Precisa estar aqui (não só em "geracao_visual") pro caso de "adiciona o
-        # Fulano cadastrado NESSA foto" — tem_imagem=true + verbo de edição cai
-        # aqui, e sem a tool o LLM usava editar_e_enviar_imagem (só texto, sem
-        # referência de rosto) e inventava rostos genéricos pra quem foi citado.
-        "gerar_e_enviar_imagem_com_pessoas",
-    }),
+    "geracao_visual": frozenset(
+        {
+            "gerar_e_enviar_imagem",
+            "gerar_e_enviar_imagem_com_pessoas",
+            "buscar_e_enviar_imagem",
+            "gerar_e_enviar_sticker",
+            "enviar_sticker_gerado",
+            "buscar_e_enviar_sticker",
+            "editar_e_enviar_imagem",
+            "editar_e_enviar_sticker",
+            "gerar_e_enviar_semaninha",
+            "converter_em_sticker",
+        }
+    ),
+    "edicao_visual": frozenset(
+        {
+            "editar_e_enviar_imagem",
+            "editar_e_enviar_sticker",
+            "gerar_e_enviar_imagem",
+            "gerar_e_enviar_sticker",
+            "converter_em_sticker",
+            # Precisa estar aqui (não só em "geracao_visual") pro caso de "adiciona o
+            # Fulano cadastrado NESSA foto" — tem_imagem=true + verbo de edição cai
+            # aqui, e sem a tool o LLM usava editar_e_enviar_imagem (só texto, sem
+            # referência de rosto) e inventava rostos genéricos pra quem foi citado.
+            "gerar_e_enviar_imagem_com_pessoas",
+        }
+    ),
     "cadastro": frozenset({"cadastrar_pessoa", "buscar_contato"}),
     "audio": frozenset({"gerar_e_enviar_audio"}),
     "musica": frozenset({"gerar_e_enviar_musica"}),
-    "lembrete": frozenset({
-        "agendar_alerta", "listar_alertas", "cancelar_alerta",
-        "editar_alerta", "buscar_contato",
-    }),
-    "memoria": frozenset({
-        "salvar_memoria", "listar_memorias", "esquecer_memoria", "buscar_contato",
-    }),
+    "lembrete": frozenset(
+        {
+            "agendar_alerta",
+            "listar_alertas",
+            "cancelar_alerta",
+            "editar_alerta",
+            "buscar_contato",
+        }
+    ),
+    "memoria": frozenset(
+        {
+            "salvar_memoria",
+            "listar_memorias",
+            "esquecer_memoria",
+            "buscar_contato",
+        }
+    ),
     # Apple Notes (via ponte MCP no Mac) — SÓ admin. Nomes em KEBAB-CASE (o ADK não
     # renomeia tools MCP). MANTER em sincronia com _NOTES_TOOLS_EXPOSTAS em
     # root_agent.py (drift → tool some na rota ou vaza no fallback).
-    "notas": frozenset({
-        "create-note", "search-notes", "get-note-content",
-        "append-to-note", "list-folders",
-    }),
+    "notas": frozenset(
+        {
+            "create-note",
+            "search-notes",
+            "get-note-content",
+            "append-to-note",
+            "list-folders",
+        }
+    ),
     "rosto": frozenset({"registrar_rosto", "esquecer_rosto", "buscar_contato"}),
     "busca": frozenset({"buscar_web", "buscar_artigos", "deepsearch_artigos"}),
     # Download de vídeo (YouTube/Twitter-X) — ANTES de "busca" na ordem de
@@ -105,12 +131,20 @@ def _norm(texto: str) -> str:
 
 
 # --- Regras (regex sobre o texto normalizado) ---------------------------------
-_RE_GER_VERBO = re.compile(r"\b(desenh\w*|gera\w*|cria\w*|faz|faca|fazer|monta\w*|ilustra\w*|gostaria de ver)\b")
-_RE_GER_NOUN = re.compile(r"\b(imagem|imagens|figurinha\w*|sticker\w*|foto|fotos|desenho|logo|logotipo|arte|wallpaper|papel de parede|meme\w*|retrato|poster)\b")
-_RE_EDIT = re.compile(r"\b(edita\w*|muda\w*|troca\w*|altera\w*|remov\w*|tira\w*|coloca\w*|adiciona\w*|deixa|transform\w*|melhora\w*|conserta\w*|recorta\w*|corta\w*|apaga\w*|pinta\w*|aumenta\w*|diminui\w*|reduz\w*|amplia\w*|encolhe\w*)\b")
+_RE_GER_VERBO = re.compile(
+    r"\b(desenh\w*|gera\w*|cria\w*|faz|faca|fazer|monta\w*|ilustra\w*|gostaria de ver)\b"
+)
+_RE_GER_NOUN = re.compile(
+    r"\b(imagem|imagens|figurinha\w*|sticker\w*|foto|fotos|desenho|logo|logotipo|arte|wallpaper|papel de parede|meme\w*|retrato|poster)\b"
+)
+_RE_EDIT = re.compile(
+    r"\b(edita\w*|muda\w*|troca\w*|altera\w*|remov\w*|tira\w*|coloca\w*|adiciona\w*|deixa|transform\w*|melhora\w*|conserta\w*|recorta\w*|corta\w*|apaga\w*|pinta\w*|aumenta\w*|diminui\w*|reduz\w*|amplia\w*|encolhe\w*)\b"
+)
 # "cantar" é o verbo canônico de pedir música ("canta uma música sobre...") —
 # por si só já basta para a rota de música, sem precisar de substantivo musical.
-_RE_MUSICA = re.compile(r"\b(compoe\w*|compor|cant[ae]\w*|cantar|jingle|instrumental|musiquinha|trilha sonora)\b")
+_RE_MUSICA = re.compile(
+    r"\b(compoe\w*|compor|cant[ae]\w*|cantar|jingle|instrumental|musiquinha|trilha sonora)\b"
+)
 _RE_MUSICA_NOUN = re.compile(r"\b(musica|cancao|beat|rap|funk|samba|sertanejo)\b")
 _RE_AUDIO = re.compile(
     r"\b("
@@ -122,13 +156,17 @@ _RE_AUDIO = re.compile(
     r"|em audio|por audio|me responde por audio"
     r")\b"
 )
-_RE_LEMBRETE = re.compile(r"\b(me lembr\w*|lembr[ae] de|me avis\w*|agend\w*|todo dia|toda\s+(segunda|terca|quarta|quinta|sexta|sabado|domingo|semana|hora|noite|manha)|amanha|depois de amanha|daqui a|as \d{1,2}(h|:| horas?| da)|cron)\b")
+_RE_LEMBRETE = re.compile(
+    r"\b(me lembr\w*|lembr[ae] de|me avis\w*|agend\w*|todo dia|toda\s+(segunda|terca|quarta|quinta|sexta|sabado|domingo|semana|hora|noite|manha)|amanha|depois de amanha|daqui a|as \d{1,2}(h|:| horas?| da)|cron)\b"
+)
 # "Você lembra de mim?" / "você lembra de quando..." — pergunta sobre a MEMÓRIA
 # do bot (recall), não pedido de lembrete; mas casa em `lembr[ae] de` de
 # _RE_LEMBRETE. Sem essa exclusão, mesma classe de bug do rosto/cadastro: rota
 # "lembrete" não tem nenhuma tool pra responder sobre lembrança, só agendar.
 _RE_LEMBRETE_RECALL = re.compile(r"\b(voce|vc|tu)\s+lembr\w*\s+de\b")
-_RE_MEMORIA = re.compile(r"\b(anota\w*|anote|lembra que eu|guarda que|memoriz\w*|salva que|registra que|nao esquec\w* que|grava que)\b")
+_RE_MEMORIA = re.compile(
+    r"\b(anota\w*|anote|lembra que eu|guarda que|memoriz\w*|salva que|registra que|nao esquec\w* que|grava que)\b"
+)
 # Menção EXPLÍCITA à palavra "memória" (sem acento após _norm) combinada com um
 # verbo de registro genérico ("cadastra", "registra", "anota", "guarda", "salva").
 # Cobre o caso em que o usuário usa o MESMO verbo de _RE_CADASTRO pra pedir
@@ -164,7 +202,9 @@ _RE_ROSTO_MENCAO = re.compile(r"\brosto\w*\b")
 # Cadastro de pessoa pelo número (sem imagem): "cadastra o fulano <número>",
 # "registra esse número como Maria". Só admin (checado em decidir_rota).
 _RE_CADASTRO = re.compile(r"\b(cadastr\w*|registr\w*)\b")
-_RE_BUSCA = re.compile(r"\b(pesquis\w*|procur\w*|busca na web|busca no|o que e|o que foi|quem e|quem foi|noticia\w*|preco de|cotacao|quanto custa|artigo\w*|paper\w*|estudo\w* sobre|cientific\w*)\b|https?://")
+_RE_BUSCA = re.compile(
+    r"\b(pesquis\w*|procur\w*|busca na web|busca no|o que e|o que foi|quem e|quem foi|noticia\w*|preco de|cotacao|quanto custa|artigo\w*|paper\w*|estudo\w* sobre|cientific\w*)\b|https?://"
+)
 # Download de vídeo (YouTube ou Twitter/X). Verbos restritos a baixar/download
 # (NÃO "manda"/"envia"/"pega" — ambíguos demais: "busca um vídeo bom de yoga e
 # me manda o link" não pode roubar a rota de `buscar_web`; mesma classe de bug
@@ -190,16 +230,64 @@ _RE_BETTDOPO = re.compile(r"\b(bettdopo|bet do po|trov\w*)\b")
 # frase maior ("ficou bom demais, mas diminui o brilho") não pode sequestrar
 # a classificação — mesma classe de bug de regex "roubando rota" já vista
 # nesta sessão (memoria/cadastro, rosto/cadastro, lembrete/recall).
-_PALAVRAS_REACAO = frozenset({
-    "kk", "rs", "haha", "rindo", "chorando", "nossa", "uau", "caramba",
-    "eita", "aff", "affs", "lindo", "linda", "incrivel", "demais", "top",
-    "show", "massa", "maravilhoso", "maravilhosa", "perfeito", "perfeita",
-    "sim", "nao", "ok", "blz", "valeu", "vlw", "obrigado", "obrigada",
-})
-_PALAVRAS_NEUTRAS = frozenset({
-    "que", "isso", "essa", "esse", "foto", "imagem", "ficou", "ficaram",
-    "ta", "tao", "muito", "bem", "mto", "mt", "pra", "de", "a", "o", "la", "ai",
-})
+_PALAVRAS_REACAO = frozenset(
+    {
+        "kk",
+        "rs",
+        "haha",
+        "rindo",
+        "chorando",
+        "nossa",
+        "uau",
+        "caramba",
+        "eita",
+        "aff",
+        "affs",
+        "lindo",
+        "linda",
+        "incrivel",
+        "demais",
+        "top",
+        "show",
+        "massa",
+        "maravilhoso",
+        "maravilhosa",
+        "perfeito",
+        "perfeita",
+        "sim",
+        "nao",
+        "ok",
+        "blz",
+        "valeu",
+        "vlw",
+        "obrigado",
+        "obrigada",
+    }
+)
+_PALAVRAS_NEUTRAS = frozenset(
+    {
+        "que",
+        "isso",
+        "essa",
+        "esse",
+        "foto",
+        "imagem",
+        "ficou",
+        "ficaram",
+        "ta",
+        "tao",
+        "muito",
+        "bem",
+        "mto",
+        "mt",
+        "pra",
+        "de",
+        "a",
+        "o",
+        "la",
+        "ai",
+    }
+)
 # Mensagem vazia (foto sem legenda) ou só risada/pontuação — caso de maior
 # volume real (reação a foto enviada pelo próprio bot).
 _RE_SO_RISADA_OU_VAZIO = re.compile(r"^[\s.,!?~\-]*(k+|rs+|haha+\w*|rindo|chorando)?[\s.,!?~\-]*$")
@@ -215,6 +303,7 @@ def _eh_reacao_pura(m: str) -> bool:
         return False
     vocabulario = _PALAVRAS_REACAO | _PALAVRAS_NEUTRAS
     return all(p in vocabulario for p in palavras) and any(p in _PALAVRAS_REACAO for p in palavras)
+
 
 # Meta-pergunta sobre o FUNCIONAMENTO do bot → rota "ajuda" (guia de uso). Cobre o
 # geral ("como você funciona", "o que você faz", "quais seus comandos") e o
@@ -344,7 +433,7 @@ def deve_forcar_salvamento(mensagem: str) -> bool:
     match = _RE_MEMORIA.search(m) or _RE_MEMORIA_EXPLICITA.search(m)
     if not match:
         return False
-    resto = m[match.end():].split()
+    resto = m[match.end() :].split()
     return len(resto) >= 3
 
 
@@ -355,8 +444,8 @@ def _turno_ja_executou_tool(llm_request) -> bool:  # noqa: ANN001 - assinatura A
     do `types.Part` (snake_case); `functionResponse` é só o alias de
     serialização JSON e NUNCA existe como atributo de instância Python.
     """
-    for content in (getattr(llm_request, "contents", None) or []):
-        for part in (getattr(content, "parts", None) or []):
+    for content in getattr(llm_request, "contents", None) or []:
+        for part in getattr(content, "parts", None) or []:
             if getattr(part, "function_response", None):
                 return True
     return False
@@ -441,7 +530,9 @@ def filtrar_tools(callback_context, llm_request) -> None:  # noqa: ANN001 - assi
     config.tools = novas
     logger.info(
         "Roteador: rota=%s — tools %d→%d",
-        request_context.rota_atual(), total, mantidas_total,
+        request_context.rota_atual(),
+        total,
+        mantidas_total,
     )
     return None
 
@@ -500,7 +591,8 @@ def injetar_instrucao(callback_context, llm_request) -> None:  # noqa: ANN001 - 
     config.system_instruction = (base_texto + "\n\n" + suf) if base_texto else suf
     logger.info(
         "Roteador: rota=%s — instrução +%d chars",
-        request_context.rota_atual(), len(suf),
+        request_context.rota_atual(),
+        len(suf),
     )
     return None
 
@@ -515,7 +607,7 @@ def _system_instruction_para_texto(valor) -> str:  # noqa: ANN001 - str | Conten
     partes = getattr(valor, "parts", None)
     if partes is not None:
         return "".join(getattr(p, "text", "") or "" for p in partes)
-    if isinstance(valor, (list, tuple)):
+    if isinstance(valor, list | tuple):
         return "".join(_system_instruction_para_texto(v) for v in valor)
     # Part solto (tem .text direto) ou fallback: usa .text se existir, senão str().
     texto = getattr(valor, "text", None)

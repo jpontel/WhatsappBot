@@ -4,19 +4,23 @@ import { registrarPessoa, listarTodos } from '../repository/pessoa.repository.js
 
 export default {
     name: '/cadastrar',
-    description: 'Cadastra uma pessoa: /cadastrar <nome> @menção · lista: /cadastrar -listar (só o admin)',
+    description:
+        'Cadastra uma pessoa: /cadastrar <nome> @menção · lista: /cadastrar -listar (só o admin)',
 
     execute: async (dto: ComandoExecutarDto) => {
         const { sock, msg, usuarioJid, conteudo, ehAdmin } = dto;
 
-        const reagir = (text: string) => sock.sendMessage(usuarioJid, { react: { text, key: msg.key } });
+        const reagir = (text: string) =>
+            sock.sendMessage(usuarioJid, { react: { text, key: msg.key } });
 
         const numeroRemetente = await resolverNumeroRemetente(sock, msg);
 
         // Admin é identificado por JID (ADMIN_JID) no dispatcher; aqui só checamos o flag.
         if (!ehAdmin) {
             await reagir('❌');
-            return await sock.sendMessage(usuarioJid, { text: 'Só o admin pode cadastrar gente 😤' });
+            return await sock.sendMessage(usuarioJid, {
+                text: 'Só o admin pode cadastrar gente 😤',
+            });
         }
 
         // /cadastrar -listar → lista todos os cadastrados (não é por grupo: o

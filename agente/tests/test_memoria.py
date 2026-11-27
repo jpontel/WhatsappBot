@@ -29,6 +29,7 @@ def _ident(numero, eh_admin=False, registrado=True):
 
 # --- nível tool: caminho feliz (mock do repo) -------------------------------
 
+
 async def test_salvar_memoria_ok(monkeypatch):
     async def fake_emb(_t):
         return _vec(0)
@@ -77,6 +78,7 @@ async def test_esquecer_memoria(monkeypatch):
 
 # --- nível tool: PERMISSÃO (travada no código) ------------------------------
 
+
 async def test_nao_admin_nao_acessa_memoria_alheia(monkeypatch):
     chamou = []
     monkeypatch.setattr(memoria_repo, "listar", lambda n: chamou.append(n))
@@ -118,6 +120,7 @@ async def test_nao_cadastrado_sem_memoria():
 
 
 # --- nível repo (sqlite-vec real, embeddings determinísticos) ----------------
+
 
 async def test_repo_vec0_fluxo(monkeypatch, tmp_path):
     memoria_repo._conn = None

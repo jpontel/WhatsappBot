@@ -72,6 +72,8 @@ def limitar_historico(callback_context, llm_request: LlmRequest):  # noqa: ANN00
 
     removidos = len(contents) - len(janela)
     if removidos > 0:
-        logger.info("Histórico cortado: %d entradas antigas omitidas (mantidas %d).", removidos, len(janela))
+        logger.info(
+            "Histórico cortado: %d entradas antigas omitidas (mantidas %d).", removidos, len(janela)
+        )
     llm_request.contents = janela
     return None

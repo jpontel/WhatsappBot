@@ -65,7 +65,7 @@ export function snapshot(
 ): { autor: string | null; texto: string }[] {
     const lista = buffers.get(chatId) ?? [];
     return lista
-        .filter(i => !idsExcluir.has(i.msgId))
+        .filter((i) => !idsExcluir.has(i.msgId))
         .slice(-max)
         .map(({ autor, texto }) => ({ autor, texto }));
 }

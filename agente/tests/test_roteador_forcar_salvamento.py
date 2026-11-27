@@ -150,7 +150,11 @@ def _llm_request(tools_names=("salvar_memoria",), function_response=False) -> Ll
     parts = [types.Part(text="oi")]
     if function_response:
         parts.append(
-            types.Part(function_response=types.FunctionResponse(name="salvar_memoria", response={"status": "ok"}))
+            types.Part(
+                function_response=types.FunctionResponse(
+                    name="salvar_memoria", response={"status": "ok"}
+                )
+            )
         )
     content = types.Content(role="user", parts=parts)
     return LlmRequest(model="x", contents=[content], config=config)
@@ -162,8 +166,13 @@ def test_forca_na_1a_chamada_do_turno():
     try:
         roteador.forcar_salvamento(None, req)
         assert req.config.tool_config is not None
-        assert req.config.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
-        assert req.config.tool_config.function_calling_config.allowed_function_names == ["salvar_memoria"]
+        assert (
+            req.config.tool_config.function_calling_config.mode
+            == types.FunctionCallingConfigMode.ANY
+        )
+        assert req.config.tool_config.function_calling_config.allowed_function_names == [
+            "salvar_memoria"
+        ]
     finally:
         rc.limpar_rota(tokens)
 

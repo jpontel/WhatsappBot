@@ -62,10 +62,17 @@ const stmtSalvarPendente = db.prepare(`
 
 const stmtRemoverPendente = db.prepare(`DELETE FROM vacuo_pendente WHERE grupo_jid = ?`);
 
-const stmtListarPendentes = db.prepare(`SELECT grupo_jid, msg_id, fire_at, payload FROM vacuo_pendente`);
+const stmtListarPendentes = db.prepare(
+    `SELECT grupo_jid, msg_id, fire_at, payload FROM vacuo_pendente`,
+);
 
 /** Grava (upsert) o timer pendente de um grupo. */
-export function salvarPendente(grupoJid: string, msgId: string, fireAt: string, payload: string): void {
+export function salvarPendente(
+    grupoJid: string,
+    msgId: string,
+    fireAt: string,
+    payload: string,
+): void {
     stmtSalvarPendente.run({ grupo_jid: grupoJid, msg_id: msgId, fire_at: fireAt, payload });
 }
 
