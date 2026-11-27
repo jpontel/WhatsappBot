@@ -71,7 +71,7 @@ describe('vacuo-grupo (detector de silêncio)', () => {
         expect(pExecute.mock.calls[0]![0].conteudo).toBe('oi');
     });
 
-    it('mídia-sozinha (sticker) também agenda', async () => {
+    it('sticker sozinho é ruído: não agenda', async () => {
         (textoParaContexto as any).mockReturnValue('[figurinha]');
         const m = {
             key: {
@@ -83,9 +83,9 @@ describe('vacuo-grupo (detector de silêncio)', () => {
             message: { stickerMessage: {} },
         } as any;
         await observar(sock, m, JID, { ehGatilho: false });
-        expect(_tamanho()).toBe(1);
+        expect(_tamanho()).toBe(0);
         await vi.advanceTimersByTimeAsync(1000);
-        expect(pExecute).toHaveBeenCalledOnce();
+        expect(pExecute).not.toHaveBeenCalled();
     });
 
     it('grupo NÃO habilitado nunca agenda', async () => {

@@ -2,7 +2,7 @@
 
 O Gemini e o MCP do bot são mockados; validamos o contrato:
 - `gerar_audio` embrulha o PCM num WAV válido;
-- `enviar_audio_gerado` chama o MCP `enviar_audio` com o base64 certo;
+- `gerar_e_enviar_audio` chama o MCP `enviar_audio` com o base64 certo;
 - erros viram dict (não levantam).
 """
 
@@ -131,7 +131,7 @@ async def test_gerar_audio_excecao_da_api_vira_erro(monkeypatch):
     assert "429" in res["erro"]
 
 
-# --- enviar_audio_gerado -----------------------------------------------------
+# --- gerar_e_enviar_audio -----------------------------------------------------
 
 
 async def test_enviar_audio_gerado_chama_mcp(monkeypatch):
@@ -146,7 +146,7 @@ async def test_enviar_audio_gerado_chama_mcp(monkeypatch):
     monkeypatch.setattr(tools, "chamar_mcp", fake_mcp)
     monkeypatch.setattr(tools, "gerar_audio", fake_gerar)
 
-    res = await tools.enviar_audio_gerado("oi pessoal", "5547@s.whatsapp.net")
+    res = await tools.gerar_e_enviar_audio("oi pessoal", "5547@s.whatsapp.net")
 
     assert res["status"] == "ok"
     tool, args = chamadas[0]
@@ -160,6 +160,6 @@ async def test_enviar_audio_gerado_propaga_erro(monkeypatch):
 
     monkeypatch.setattr(tools, "gerar_audio", fake_gerar)
 
-    res = await tools.enviar_audio_gerado("oi", "5547@s.whatsapp.net")
+    res = await tools.gerar_e_enviar_audio("oi", "5547@s.whatsapp.net")
 
     assert "erro" in res

@@ -21,7 +21,7 @@ def _vec(i: int, dim: int = 512) -> list[float]:
     return v
 
 
-_FOTO = {"base64": "x", "mimetype": "image/jpeg"}
+_FOTO = {"base64": _b64.b64encode(b"foto-fake").decode(), "mimetype": "image/jpeg"}
 
 
 @contextmanager
@@ -46,8 +46,13 @@ async def test_registrar_rosto_ok(monkeypatch):
         assert num == "B" and nome == "João"
         return {"status": "ok"}
 
+    async def fake_salvar_foto(num, nome, _midia):
+        assert num == "B" and nome == "João"
+        return {"status": "ok"}
+
     monkeypatch.setattr(rosto_repo, "gerar_embeddings_faciais", fake_embs)
     monkeypatch.setattr(rosto_repo, "salvar_rosto", fake_salvar)
+    monkeypatch.setattr(rosto_repo, "salvar_foto_rosto", fake_salvar_foto)
 
     with _ident("ADMIN", eh_admin=True, midia=_FOTO):
         assert await tools.registrar_rosto("B", "João") == {"status": "ok"}

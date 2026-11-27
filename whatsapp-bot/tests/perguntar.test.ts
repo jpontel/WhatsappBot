@@ -77,27 +77,26 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         expect(typeof perguntar.execute).toBe('function');
     });
 
-    it('sem conteúdo: reage ❌ e não agenda lote', async () => {
+    it('conteúdo vazio: agenda normalmente (quem decide é o agente)', async () => {
         const d = dto({ conteudo: '' });
         await perguntar.execute(d);
         await dispararLote();
 
-        expect(axios.post).not.toHaveBeenCalled();
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
+        // Texto vazio NÃO é mais rejeitado localmente (ver comentário em
+        // perguntar.ts:148-150) — o agente lida com `mensagem` vazia (ex.:
+        // mídia-sozinha, menção sem texto) usando contexto/mídia do turno.
+        expect(axios.post).toHaveBeenCalledOnce();
+        const payload = (axios.post as any).mock.calls[0][1];
+        expect(payload.mensagem).toBe('');
+        expect(d.sock.sendMessage).not.toHaveBeenCalledWith(d.usuarioJid, {
             react: { text: '❌', key: d.msg.key },
-        });
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
-            text: 'Precisa mandar uma pergunta!!! 🤨',
         });
     });
 
-    it('1 mensagem: reage ⏳, POSTa após a janela, envia texto e reage 💅', async () => {
+    it('1 mensagem: POSTa após a janela e envia o texto da resposta', async () => {
         const d = dto({ conteudo: 'capital da australia' });
 
         await perguntar.execute(d);
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
-            react: { text: '⏳', key: d.msg.key },
-        });
         expect(axios.post).not.toHaveBeenCalled(); // ainda dentro da janela
 
         await dispararLote();
@@ -121,12 +120,15 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
             { text: 'ok' },
             { quoted: d.msg },
         );
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
-            react: { text: '💅', key: d.msg.key },
-        });
+        // A reação de conclusão (💅) é emitida pelo AGENTE, não pelo bot
+        // (ver perguntar.ts:106-107) — o bot não reage em turno de sucesso.
+        expect(d.sock.sendMessage).not.toHaveBeenCalledWith(
+            d.usuarioJid,
+            expect.objectContaining({ react: expect.anything() }),
+        );
     });
 
-    it('coalesce: 3 /p do mesmo remetente na janela viram 1 POST com lote e 💅 em todos', async () => {
+    it('coalesce: 3 /p do mesmo remetente na janela viram 1 POST com lote', async () => {
         const sock = mockSock();
         const d1 = dto({ sock, conteudo: 'um', id: 'a' });
         const d2 = dto({ sock, conteudo: 'dois', id: 'b' });
@@ -144,11 +146,13 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         expect(payload.mensagem).toContain('2. dois');
         expect(payload.mensagem).toContain('3. tres');
 
-        for (const id of ['a', 'b', 'c']) {
-            expect(sock.sendMessage).toHaveBeenCalledWith(d1.usuarioJid, {
-                react: { text: '💅', key: expect.objectContaining({ id }) },
-            });
-        }
+        // A reação de conclusão é do AGENTE, não do bot (ver perguntar.ts:106-107)
+        // — o bot só manda o texto final, citando a última mensagem do lote.
+        expect(sock.sendMessage).toHaveBeenCalledWith(
+            d1.usuarioJid,
+            { text: 'ok' },
+            { quoted: d3.msg },
+        );
     });
 
     it('remetentes diferentes no mesmo grupo geram lotes (POSTs) separados', async () => {
@@ -178,7 +182,7 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         expect(mensagens).toContain('do bia');
     });
 
-    it('texto null no response: não envia texto, só reage 💅', async () => {
+    it('texto null no response: não envia nada (quem reage é o agente)', async () => {
         (axios.post as any).mockResolvedValue({
             data: { texto: null, tools_acionadas: ['enviar_sticker_buscado'] },
         });
@@ -187,13 +191,9 @@ describe('comando /p (ponte para o agente, com debounce)', () => {
         await perguntar.execute(d);
         await dispararLote();
 
-        const enviosTexto = (d.sock.sendMessage as any).mock.calls.filter(
-            ([, p]: any[]) => 'text' in p,
-        );
-        expect(enviosTexto).toHaveLength(0);
-        expect(d.sock.sendMessage).toHaveBeenCalledWith(d.usuarioJid, {
-            react: { text: '💅', key: d.msg.key },
-        });
+        // Nem texto nem reação saem do bot nesse caminho — a mídia já foi
+        // entregue pelo agente via MCP, e a reação 💅 também é dele.
+        expect(d.sock.sendMessage).not.toHaveBeenCalled();
     });
 
     it('envia mídia citada como base64 no payload', async () => {

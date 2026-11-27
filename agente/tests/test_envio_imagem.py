@@ -35,7 +35,7 @@ async def test_imagem_buscada_entrega_via_mcp_sem_base64_no_retorno(monkeypatch)
 
     monkeypatch.setattr(tools, "buscar_imagem", fake_buscar)
 
-    res = await tools.enviar_imagem_buscada("gato siamês", "5511@s.whatsapp.net")
+    res = await tools.buscar_e_enviar_imagem("gato siamês", "5511@s.whatsapp.net")
 
     # 1) o MCP recebeu a imagem (base64) no servidor
     assert len(enviados) == 1
@@ -74,7 +74,7 @@ async def test_erro_na_fonte_nao_chama_mcp(monkeypatch):
 
     monkeypatch.setattr(tools, "buscar_imagem", fake_buscar)
 
-    res = await tools.enviar_imagem_buscada("xyz", "5511@s.whatsapp.net")
+    res = await tools.buscar_e_enviar_imagem("xyz", "5511@s.whatsapp.net")
 
     assert res == {"erro": "nada encontrado"}
     assert enviados == []  # não tenta enviar se a busca falhou
@@ -90,7 +90,7 @@ async def test_falha_no_mcp_retorna_erro(monkeypatch):
     monkeypatch.setattr(tools, "buscar_imagem", fake_buscar)
     monkeypatch.setattr(tools, "chamar_mcp", fake_mcp)
 
-    res = await tools.enviar_imagem_buscada("gato", "5511@s.whatsapp.net")
+    res = await tools.buscar_e_enviar_imagem("gato", "5511@s.whatsapp.net")
 
     assert "erro" in res
     assert "MCP" in res["erro"]
