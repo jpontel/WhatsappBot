@@ -1,0 +1,98 @@
+name: Deploy produção
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  # NUNCA cancelar um deploy em andamento — risco de deixar o bot-baileys pela
+  # metade de um restart (sessão WhatsApp sensível a conflict: replaced).
+  cancel-in-progress: false
+
+jobs:
+  gate-whatsapp-bot:
+    name: Gate - whatsapp-bot (typecheck+lint+test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: whatsapp-bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: whatsapp-bot/package-lock.json
+      - run: npm install -g npm@11
+      - name: Instalar libs de sistema (canvas)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+
+  gate-agente:
+    name: Gate - agente (ruff+pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agente
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: poetry
+          cache-dependency-path: agente/poetry.lock
+      - run: pipx install poetry==2.4.1
+      - run: poetry install --no-root
+      - run: poetry run ruff check .
+      - run: poetry run ruff format --check .
+      - run: poetry run pytest
+
+  deploy:
+    name: Deploy via SSH (rsync + docker compose)
+    needs: [gate-whatsapp-bot, gate-agente]
+    runs-on: ubuntu-latest
+    # Required reviewer configurado manualmente em Settings → Environments →
+    # production (Estágio B do guard-rail, docs/PLANO-fundacao-engenharia-ci-cd.md).
+    # Remover só depois de alguns deploys aprovados manualmente sem incidente.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          umask 077
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sincronizar código via rsync
+        run: |
+          rsync -az --delete \
+            --exclude 'node_modules' \
+            --exclude '.venv' \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'auth_info_baileys' \
+            --exclude '*.db' \
+            --exclude '*.db-journal' \
+            --exclude '*.db-shm' \
+            --exclude '*.db-wal' \
+            --exclude 'data' \
+            --exclude '.env' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/root/bot/"
+
+      - name: Subir containers (comando único, sem down+up separado)
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd /root/bot && docker compose up -d --build"

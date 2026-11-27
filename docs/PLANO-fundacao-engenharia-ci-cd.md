@@ -144,6 +144,15 @@ Checklist a repetir nos primeiros deploys de teste: confirmar via `docker ps` qu
 4. Abrir um PR de teste e confirmar que `ci-whatsapp-bot.yml`/`ci-agente.yml` aparecem rodando no GitHub Actions (prova de que saíram do limbo em que estavam), que cada um dispara só com mudanças no seu diretório, e que o job `test` do `ci-whatsapp-bot.yml` passa de fato com os módulos nativos compilados (não só `typecheck`/`lint`).
 5. Deploy automático só é ligado após Estágio A do guard-rail (teste manual via SSH) e nasce com Required reviewer ativo (Estágio B) — nunca ativar `deploy.yml` direto em modo 100% automático na primeira vez.
 
+## Status da implementação
+
+Fases 0–5 implementadas e commitadas (`6bf8e05`). `deploy.yml` existe mas está **inerte** — não roda nada perigoso até:
+1. Secrets `DEPLOY_SSH_KEY` (conteúdo de `linode_secondary/id_ed25519`), `DEPLOY_HOST`, `DEPLOY_USER` (`root`) serem cadastrados manualmente em Settings → Secrets (ação de admin, fora do alcance do `gh` local).
+2. O Environment `production` ser criado manualmente em Settings → Environments, com **Required reviewers** (Estágio B) — sem isso, o job `deploy` roda sem portão nenhum no primeiro push à main após os secrets existirem.
+3. Estágio A (teste manual via SSH do comando exato de rsync+`docker compose up -d --build`) ser feito **antes** de confiar no workflow.
+
+Até esses 3 passos manuais serem feitos, o arquivo commitado não tem efeito nenhum (job falha cedo por falta de secrets, não derruba nada). Fase 6 (guard-rail) descrita acima permanece válida como checklist de rollout.
+
 ## Débito técnico descoberto durante a implementação (Fase 1)
 
 Ao rodar `npm test` de verdade pela primeira vez (nunca tinha rodado em CI), apareceram **5 falhas reais e pré-existentes**, sem relação com lint/CI:
