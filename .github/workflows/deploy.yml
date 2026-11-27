@@ -41,6 +41,11 @@ jobs:
     defaults:
       run:
         working-directory: agente
+    # Placeholders p/ os 2 campos obrigatórios do Settings (não são segredos
+    # reais — ver ci-agente.yml).
+    env:
+      GEMINI_API_KEY: dummy-ci-key
+      TAVILY_API_KEY: dummy-ci-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

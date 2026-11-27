@@ -37,6 +37,12 @@ jobs:
   test:
     name: Testes (pytest)
     runs-on: ubuntu-latest
+    # Settings (config.py) exige essas 2 chaves sem default — não são segredos
+    # reais, só placeholders pra passar na validação do pydantic em CI (nenhum
+    # teste faz chamada de rede real pro Gemini/Tavily).
+    env:
+      GEMINI_API_KEY: dummy-ci-key
+      TAVILY_API_KEY: dummy-ci-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

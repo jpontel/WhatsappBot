@@ -16,7 +16,6 @@ const OUTPUT_DIR = path.resolve(__dirname, '../../temp_videos');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
 export class TwitterService {
-
     async baixarVideo(url: string): Promise<string> {
         const timestamp = Date.now();
         const outputPath = path.join(OUTPUT_DIR, `video_twitter_${timestamp}.mp4`);
@@ -35,10 +34,11 @@ export class TwitterService {
 
             console.log('Download concluído!');
             return outputPath;
-
         } catch (error) {
             console.error('Erro ao baixar o vídeo do twitter/x:', error);
-            throw new Error('Não consegui baixar esse vídeo. Pode ser um tweet privado/apagado, sem vídeo, ou o X bloqueou a tentativa — tenta outro link.');
+            throw new Error(
+                'Não consegui baixar esse vídeo. Pode ser um tweet privado/apagado, sem vídeo, ou o X bloqueou a tentativa — tenta outro link.',
+            );
         }
     }
 }
