@@ -39,7 +39,9 @@ export class TwitterService {
         console.log(`Iniciando download do vídeo do twitter/x: ${url}`);
         try {
             await youtubedl(url, {
-                format: 'best[ext=mp4][height<=1080]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+                // Teto de 720p (vs. 1080p do YouTube) — validado na prática: o mesmo
+                // link em 1080p baixou 53,64 MB; em 720p, 12,94 MB.
+                format: 'best[ext=mp4][height<=720]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
                 output: outputPath,
                 noCheckCertificates: true,
                 noWarnings: true,
@@ -177,8 +179,14 @@ Confirmado: deny-list (`_MCP_TOOLS_OCULTAS`), não allowlist. A tool nova aparec
 ## Riscos residuais aceitos (da revisão técnica)
 
 - **Tool errada por confusão de domínio**: se o LLM chamar `baixar_video_youtube` para um link do X (ou vice-versa), o header fixo `referer` de cada serviço (`referer:youtube.com` / `referer:twitter.com`) pode fazer o yt-dlp falhar no domínio errado, e o usuário recebe uma mensagem de erro que menciona o serviço errado (ex.: "YouTube bloqueou" quando o link era do X). Mitigado pela instrução explícita de seleção por domínio (seção 4), mas não eliminado — não vale adicionar detecção de domínio no backend Node agora (YAGNI; a seleção de tool já é responsabilidade do LLM em todo o resto do agente).
-- **Sem teto de tamanho/resolução do vídeo baixado**: nem o YouTube nem este plano implementam limite de tamanho de arquivo ou de resolução — risco pré-existente (herdado do YouTube, não introduzido aqui) de um vídeo grande estourar o timeout de 180s do bot (`AGENT_TIMEOUT_MS`) ou o limite prático de envio de vídeo do Baileys. Mitigado parcialmente porque vídeos de X tendem a ser mais curtos que os de YouTube. Não implementado agora por ser um problema maior que o escopo desta tool (afeta também o YouTube já em produção) — candidato a um plano próprio se vídeos grandes derem problema na prática.
+- **Teto de resolução ajustado para 720p (não 1080p) no Twitter/X** — achado confirmado na prática durante a implementação: o mesmo vídeo de teste (`x.com/elonmusk/status/2121388517540716839`) baixou **53,64 MB em 1080p** e **12,94 MB em 720p**. Como o YouTube (`youtube.service.ts`) usa `height<=1080` e não será tocado por este plano, o Twitter/X ficou com teto mais conservador (`height<=720`) só no `twitter.service.ts` novo. Não elimina o risco por completo (um vídeo bem mais longo em 720p ainda pode passar do limite prático do Baileys) nem resolve o YouTube (fora de escopo), mas reduz bastante o caso comum.
 - **Naming `usuario_jid` (instrução) vs. `jid` (schema MCP real)**: a entrada de instrução para `baixar_video_twitter` segue o mesmo texto (`usuario_jid`) já usado para `baixar_video_youtube` hoje — inconsistência pré-existente, não uma regressão deste plano. Não corrigida aqui para não tocar em texto do YouTube fora do escopo pedido.
+
+## Verificação já realizada (antes do deploy)
+
+- **Download real via `TwitterService` (isolado, sem Baileys)**: `x.com/elonmusk/status/2121388517540716839` baixado com sucesso com o format string final (720p) — 12,94 MB.
+- **Roteamento (`decidir_rota` real, stub só de `google.genai`)**: 9 casos testados, incluindo os dois achados da crítica adversarial ("busca um vídeo bom de yoga..." e "pega essa ideia de vídeo...") — todos corretos, nenhum rouba `busca`/fallback indevidamente.
+- **Não testado**: fluxo `/p` completo fim-a-fim via WhatsApp real — a sessão local (`auth_info_baileys`) é a MESMA da produção; rodar o bot localmente arriscaria conflito de sessão ("conflict: replaced") com o bot ao vivo. Validação desse caminho específico (envio real via Baileys) fica para depois do deploy, em produção.
 
 ## Verificação manual
 

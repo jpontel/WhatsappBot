@@ -25,7 +25,10 @@ export class TwitterService {
 
         try {
             await youtubedl(url, {
-                format: 'best[ext=mp4][height<=1080]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+                // Teto de 720p (vs. 1080p do YouTube): validado na prática que vídeos
+                // do X em 1080p podem passar de 50MB, acima do que o WhatsApp/Baileys
+                // aceita com confiabilidade. Reduz o caso comum, não elimina 100%.
+                format: 'best[ext=mp4][height<=720]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
                 output: outputPath,
                 noCheckCertificates: true,
                 noWarnings: true,
